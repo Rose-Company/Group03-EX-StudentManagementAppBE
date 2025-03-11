@@ -1,4 +1,4 @@
-module ielts-web-api
+module Group03-EX-StudentManagementAppBE
 
 go 1.22.4
 
