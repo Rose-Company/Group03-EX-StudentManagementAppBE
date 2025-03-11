@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"ielts-web-api/internal/handlers"
-	"ielts-web-api/internal/services"
 
 	"github.com/gin-gonic/gin"
 )
@@ -33,12 +31,12 @@ func main() {
 
 	// Initialize the repository and service. Add more repo and service evrytime you create a new API
 
-	service := services.NewService()
+	//service := services.NewService()
 
 	// Initialize the Gin router and register routes. Do not edit this part
 	router := gin.Default()
-	handler := handlers.NewHandler(service)
-	handler.RegisterRoutes(router)
+	// handler := handlers.NewHandler(service)
+	// handler.RegisterRoutes(router)
 
 	// Start the server
 	router.Run("0.0.0.0:" + fmt.Sprintf("%d", 8080))
