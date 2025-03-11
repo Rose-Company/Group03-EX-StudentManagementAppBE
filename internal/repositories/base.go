@@ -1,9 +1,9 @@
 package repositories
 
 import (
+	"Group03-EX-StudentManagementAppBE/common"
+	"Group03-EX-StudentManagementAppBE/internal/models"
 	"context"
-	"ielts-web-api/common"
-	"ielts-web-api/internal/models"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

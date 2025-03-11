@@ -1,8 +1,8 @@
 package middleware
 
 import (
+	"Group03-EX-StudentManagementAppBE/internal/common"
 	"fmt"
-	"ielts-web-api/common"
 	"strings"
 	"time"
 

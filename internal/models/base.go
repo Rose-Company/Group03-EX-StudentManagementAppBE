@@ -1,7 +1,7 @@
 package models
 
 import (
-	"ielts-web-api/common"
+	"Group03-EX-StudentManagementAppBE/common"
 	"strings"
 )
 
