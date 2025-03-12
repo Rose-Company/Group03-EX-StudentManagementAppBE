@@ -3,6 +3,7 @@ package app
 
 import (
 	"Group03-EX-StudentManagementAppBE/internal/handlers/auth"
+	"Group03-EX-StudentManagementAppBE/internal/handlers/faculty"
 	"Group03-EX-StudentManagementAppBE/internal/handlers/student"
 	"Group03-EX-StudentManagementAppBE/internal/services"
 
@@ -22,6 +23,12 @@ func Setup(router *gin.Engine, service *services.Service) {
 	{
 		studentHandler := student.NewHandler(service)
 		studentHandler.RegisterRoutes(studentGroup)
+	}
+
+	facultyGroup := router.Group("")
+	{
+		facultyHandler := faculty.NewHandler(service)
+		facultyHandler.RegisterRoutes(facultyGroup)
 	}
 
 	// Register feature-specific routes
