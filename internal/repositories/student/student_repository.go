@@ -12,6 +12,6 @@ type Repository interface {
 	repositories.BaseRepository[models.Student]
 }
 
-func NewStudentRepository(db *gorm.DB) Repository {
+func NewRepository(db *gorm.DB) Repository {
 	return repositories.NewBaseRepository[models.Student](db)
 }

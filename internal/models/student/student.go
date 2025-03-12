@@ -1,6 +1,7 @@
 package models
 
 import (
+	"Group03-EX-StudentManagementAppBE/common"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,6 +23,10 @@ type Student struct {
 	UserID      uuid.UUID `json:"user_id" gorm:"type:uuid;references:users(id)"`
 	CreatedAt   time.Time `json:"created_at" gorm:"type:timestamptz;default:CURRENT_TIMESTAMP"`
 	UpdatedAt   time.Time `json:"updated_at" gorm:"type:timestamptz;default:CURRENT_TIMESTAMP"`
+}
+
+func (s *Student) TableName() string {
+	return common.POSTGRES_TABLE_NAME_STUDENTS
 }
 
 type StudentResponse struct {

@@ -2,18 +2,16 @@ package student
 
 import (
 	"Group03-EX-StudentManagementAppBE/common"
+	"Group03-EX-StudentManagementAppBE/internal/handlers"
 	"Group03-EX-StudentManagementAppBE/internal/services"
 	"Group03-EX-StudentManagementAppBE/middleware"
-	"Group03-EX-StudentManagementAppBE/internal/handlers"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 type Handler struct {
 	handlers.BaseHandler
 }
-
 
 func NewHandler(service *services.Service) *Handler {
 	return &Handler{
@@ -45,28 +43,11 @@ func (h *Handler) GetByID(c *gin.Context) {
 		return
 	}
 
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		c.JSON(common.BAD_REQUEST_STATUS, common.Response{
-			Code:    common.REQUEST_FAILED,
-			Message: "Invalid student ID format",
-		})
-		return
-	}
-
 	// Get student details from service
-	student, err := h.Service.studentService.GetByID(c, id)
+	student, err := h.Service.Student.GetByID(c, idStr)
 	if err != nil {
-		c.JSON(common.NOT_FOUND_STATUS, common.Response{
-			Code:    common.REQUEST_FAILED,
-			Message: "Student not found",
-		})
+		common.AbortWithError(c, err)
 		return
 	}
-
-	c.JSON(common.SUCCESS_STATUS, common.Response{
-		Code:    common.REQUEST_SUCCESS,
-		Message: "ok!",
-		Data:    student,
-	})
+	c.JSON(common.SUCCESS_STATUS, student)
 }

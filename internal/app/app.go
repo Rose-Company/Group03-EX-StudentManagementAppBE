@@ -3,6 +3,7 @@ package app
 
 import (
 	"Group03-EX-StudentManagementAppBE/internal/handlers/auth"
+	"Group03-EX-StudentManagementAppBE/internal/handlers/student"
 	"Group03-EX-StudentManagementAppBE/internal/services"
 
 	"github.com/gin-gonic/gin"
@@ -17,10 +18,10 @@ func Setup(router *gin.Engine, service *services.Service) {
 		authHandler.RegisterRoutes(authen)
 	}
 
-	student := router.Group("")
+	studentGroup := router.Group("")
 	{
-		studentHandler := student.NewStudentHandler(service)
-		studentHandler.RegisterRoutes(student)
+		studentHandler := student.NewHandler(service)
+		studentHandler.RegisterRoutes(studentGroup)
 	}
 
 	// Register feature-specific routes
