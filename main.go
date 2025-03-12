@@ -7,10 +7,14 @@ import (
 	"Group03-EX-StudentManagementAppBE/internal/repositories/user"
 	"Group03-EX-StudentManagementAppBE/internal/services"
 	"fmt"
+	"log"
+	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func main() {
@@ -30,8 +34,22 @@ func main() {
 		cfg.Postgres.Port,
 	)
 
-	// Initialize the database connection
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	// Configure GORM logger for SQL query logging
+	newLogger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
+		logger.Config{
+			SlowThreshold:             time.Second, // Slow SQL threshold
+			LogLevel:                  logger.Info, // Log level (Info shows all queries)
+			IgnoreRecordNotFoundError: false,       // Show record not found errors
+			Colorful:                  true,        // Enable color
+		},
+	)
+
+	// Initialize the database connection with logger
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: newLogger,
+	})
+
 	if err != nil {
 		panic("Failed to connect to the database")
 	}
