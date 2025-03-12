@@ -12,6 +12,8 @@ var (
 	ErrUserNotFound = errors.New("user not found")
 	ErrRoleNotFound = errors.New("role not found")
 	ErrInvalidToken = errors.New("invalid token")
+	ErrInvalidInput = errors.New("invalid input")
+	ErrInvalidEmailOrPassWord = errors.New("invalid email or password")
 )
 
 var listErrorData = []errData{

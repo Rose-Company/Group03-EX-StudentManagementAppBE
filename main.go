@@ -1,15 +1,20 @@
+// cmd/main.go
 package main
 
 import (
 	"Group03-EX-StudentManagementAppBE/config"
-	"Group03-EX-StudentManagementAppBE/internal/handlers"
-	"Group03-EX-StudentManagementAppBE/internal/repositories"
+	"Group03-EX-StudentManagementAppBE/internal/app"
+	"Group03-EX-StudentManagementAppBE/internal/repositories/user"
 	"Group03-EX-StudentManagementAppBE/internal/services"
 	"fmt"
+	"log"
+	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func main() {
@@ -19,7 +24,7 @@ func main() {
 		panic(fmt.Sprintf("Failed to load config: %v", err))
 	}
 
-	// Create the PostgreSQL DSN (Data Source Name) using the loaded config
+	// Create the PostgreSQL DSN
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=require",
 		cfg.Postgres.Host,
@@ -29,28 +34,38 @@ func main() {
 		cfg.Postgres.Port,
 	)
 
-	// Initialize the database connection
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	// Configure GORM logger for SQL query logging
+	newLogger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
+		logger.Config{
+			SlowThreshold:             time.Second, // Slow SQL threshold
+			LogLevel:                  logger.Info, // Log level (Info shows all queries)
+			IgnoreRecordNotFoundError: false,       // Show record not found errors
+			Colorful:                  true,        // Enable color
+		},
+	)
+
+	// Initialize the database connection with logger
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: newLogger,
+	})
+
 	if err != nil {
 		panic("Failed to connect to the database")
 	}
 
 	// Initialize repositories
-	studentRepo := repositories.NewStudentRepository(db)
+	userRepo := user.NewRepository(db)
 
 	// Initialize services
-	studentService := services.NewStudentService(studentRepo)
+	service := services.NewService(userRepo)
 
-	// Initialize the Gin router and register routes
+	// Initialize the Gin router
 	router := gin.Default()
 
-	// Create API group
-	api := router.Group("")
-
-	// Initialize handlers and register routes
-	studentHandler := handlers.NewStudentHandler(studentService)
-	studentHandler.RegisterRoutes(api)
+	// Setup the application (connect handlers, services, etc.)
+	app.Setup(router, service)
 
 	// Start the server
-	router.Run("0.0.0.0:" + fmt.Sprintf("%d", 8080))
+	router.Run("0.0.0.0:8080")
 }

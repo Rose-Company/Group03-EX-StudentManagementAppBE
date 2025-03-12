@@ -1,7 +1,6 @@
 package middleware
 
 import (
-
 	"Group03-EX-StudentManagementAppBE/common"
 	"fmt"
 	"strings"
@@ -93,3 +92,5 @@ func OptionalUserAuthentication() gin.HandlerFunc {
 
 	}
 }
+
+// ACL Authentication.

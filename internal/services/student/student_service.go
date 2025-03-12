@@ -1,8 +1,8 @@
-package services
+package student
 
 import (
-	"Group03-EX-StudentManagementAppBE/internal/models"
-	"Group03-EX-StudentManagementAppBE/internal/repositories"
+	"Group03-EX-StudentManagementAppBE/internal/models/student"
+	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
 	"context"
 
 	"github.com/google/uuid"
@@ -13,10 +13,10 @@ type StudentService interface {
 }
 
 type studentService struct {
-	studentRepo repositories.StudentRepository
+	studentRepo student.Repository
 }
 
-func NewStudentService(studentRepo repositories.StudentRepository) StudentService {
+func NewStudentService(studentRepo student.Repository) Service {
 	return &studentService{
 		studentRepo: studentRepo,
 	}
