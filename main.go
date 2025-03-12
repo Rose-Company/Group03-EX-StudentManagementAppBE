@@ -55,7 +55,6 @@ func main() {
 	if err != nil {
 		panic("Failed to connect to the database")
 	}
-
 	// Initialize repositories
 	userRepo := user.NewRepository(db)
 	studentRepo := student.NewRepository(db)
@@ -66,8 +65,6 @@ func main() {
 
 	// Initialize the Gin router
 	router := gin.Default()
-
-	// Add CORS middleware
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
