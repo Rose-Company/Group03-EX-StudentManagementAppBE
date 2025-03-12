@@ -11,6 +11,7 @@ import (
 var (
 	ErrUserNotFound = errors.New("user not found")
 	ErrRoleNotFound = errors.New("role not found")
+	ErrInvalidToken = errors.New("invalid token")
 )
 
 var listErrorData = []errData{
