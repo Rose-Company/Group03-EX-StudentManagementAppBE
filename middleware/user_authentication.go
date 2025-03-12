@@ -92,3 +92,5 @@ func OptionalUserAuthentication() gin.HandlerFunc {
 
 	}
 }
+
+// ACL Authentication.
