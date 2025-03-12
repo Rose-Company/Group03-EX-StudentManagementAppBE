@@ -1,7 +1,9 @@
 package common
 
 // Define New Table Name here
-const ()
+const (
+	POSTGRES_TABLE_NAME_USERS = "PUBLIC.users"
+)
 
 const (
 	ROLE_END_USER        = "END_USER"

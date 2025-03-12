@@ -1,16 +1,16 @@
 package services
 
+import (
+	"Group03-EX-StudentManagementAppBE/internal/repositories/user"
+	"Group03-EX-StudentManagementAppBE/internal/services/auth"
+)
+
 type Service struct {
+	Auth auth.Service
 }
 
-func NewService(repos ...interface{}) *Service {
-	service := &Service{}
-	for _, repo := range repos {
-		switch repo.(type) {
-
-		default:
-			panic("Unknown repository type provided")
-		}
+func NewService(userRepo user.Repository) *Service {
+	return &Service{
+		Auth: auth.NewService(userRepo),
 	}
-	return service
 }
