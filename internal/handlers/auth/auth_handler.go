@@ -23,9 +23,6 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 	userRoutes := rg.Group("/users")
 	{
 		userRoutes.POST("/login", h.LogIn)
-		// userRoutes.POST("/register", func(c *gin.Context) { middleware.UserAuthentication(c)
-		// 	h.LogIn(c)
-		// })
 	}
 
 }

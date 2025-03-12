@@ -3,6 +3,7 @@ package auth
 
 import (
 	"Group03-EX-StudentManagementAppBE/common"
+	"Group03-EX-StudentManagementAppBE/config"
 	models "Group03-EX-StudentManagementAppBE/internal/models/auth"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/user"
 	"context"
@@ -16,41 +17,46 @@ import (
 var JWTSecret = []byte("your_secret_key")
 
 type authService struct {
-	userRepo user.Repository
+	userRepo  user.Repository
+	jwtSecret []byte
 }
 
 func NewService(userRepo user.Repository) Service {
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		panic(err)
+	}
 	return &authService{
-		userRepo: userRepo,
+		userRepo:  userRepo,
+		jwtSecret: []byte(cfg.JWTSecret),
 	}
 }
 
 // LoginUser handles user login
-func (s *authService) LoginUser(ctx context.Context, req models.LoginRequest) (*string, error) {
+func (s *authService) LoginUser(ctx context.Context, req models.LoginRequest) (*models.LoginResponse, error) {
 	var user *models.User
 	var err error
 	user, err = s.userRepo.GetDetailByConditions(ctx, func(tx *gorm.DB) {
 		tx.Where("email = ?", *req.Email)
 	})
 
-	//  SELECT * FROM "public"."users" WHERE email = 'mnn27@gmail.com' ORDER BY "users"."id" LIMIT 1
 	if err != nil {
 		return nil, err
-	}
-
-	if user.IsBanned {
-		return nil, common.ErrUserBanned
-	}
-
-	if user.Provider == common.USER_PROVIDER_GOOGLE {
-		return nil, common.ErrGoogleAccount
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(*req.Password)); err != nil {
 		return nil, common.ErrInvalidEmailOrPassWord
 	}
 
-	return s.generateJWTToken(user)
+	tokenString, err := s.generateJWTToken(user)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.LoginResponse{
+		Code:  200,
+		Token: *tokenString,
+	}, nil
 }
 
 // generateJWTToken generates a JWT token for authentication
@@ -62,7 +68,7 @@ func (s *authService) generateJWTToken(user *models.User) (*string, error) {
 		"exp":   time.Now().Add(24 * time.Hour).Unix(),
 	})
 
-	tokenString, err := token.SignedString(JWTSecret)
+	tokenString, err := token.SignedString(s.jwtSecret)
 	if err != nil {
 		return nil, err
 	}

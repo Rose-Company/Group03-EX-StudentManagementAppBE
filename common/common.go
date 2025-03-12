@@ -2,7 +2,7 @@ package common
 
 // Define New Table Name here
 const (
-	POSTGRES_TABLE_NAME_USERS = "public.users"
+	POSTGRES_TABLE_NAME_USERS = "PUBLIC.users"
 )
 
 const (

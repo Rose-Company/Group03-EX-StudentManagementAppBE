@@ -22,5 +22,5 @@ func (h *Handler) LogIn(c *gin.Context) {
 		return
 	}
 
-	c.JSON(common.SUCCESS_STATUS, common.BaseResponseMess(common.SUCCESS_STATUS, "Login successfully", token))
+	c.JSON(common.SUCCESS_STATUS, token)
 }

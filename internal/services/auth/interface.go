@@ -8,5 +8,5 @@ import (
 
 type Service interface {
 	// Define the methods that the service layer should implement
-	LoginUser(ctx context.Context, req models.LoginRequest) (*string, error)
+	LoginUser(ctx context.Context, req models.LoginRequest) (*models.LoginResponse, error)
 }
