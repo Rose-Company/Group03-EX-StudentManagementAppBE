@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"Group03-EX-StudentManagementAppBE/internal/common"
+	"Group03-EX-StudentManagementAppBE/common"
 	"fmt"
 	"strings"
 	"time"
