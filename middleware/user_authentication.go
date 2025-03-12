@@ -6,11 +6,21 @@ import (
 	"strings"
 	"time"
 
+	cfg "Group03-EX-StudentManagementAppBE/config"
+
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var secretKey = []byte("your_secret_key")
+var secretKey []byte
+
+func init() {
+	config, err := cfg.LoadConfig()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to load config: %v", err))
+	}
+	secretKey = []byte(config.JWTSecret)
+}
 
 func UserAuthentication(c *gin.Context) {
 	authorization := c.GetHeader("Authorization")
@@ -20,6 +30,7 @@ func UserAuthentication(c *gin.Context) {
 	}
 
 	arr := strings.Split(authorization, "Bearer ")
+	fmt.Println(arr)
 	if len(arr) < 2 {
 		c.AbortWithStatusJSON(common.UNAUTHORIZED_STATUS, gin.H{"error": "Token is required"})
 		return
@@ -89,8 +100,5 @@ func OptionalUserAuthentication() gin.HandlerFunc {
 			}
 		}
 		c.Next()
-
 	}
 }
-
-// ACL Authentication.

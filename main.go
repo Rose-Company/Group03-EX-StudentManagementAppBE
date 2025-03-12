@@ -4,6 +4,7 @@ package main
 import (
 	"Group03-EX-StudentManagementAppBE/config"
 	"Group03-EX-StudentManagementAppBE/internal/app"
+	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/user"
 	"Group03-EX-StudentManagementAppBE/internal/services"
 	"fmt"
@@ -56,9 +57,10 @@ func main() {
 
 	// Initialize repositories
 	userRepo := user.NewRepository(db)
+	studentRepo := student.NewRepository(db)
 
 	// Initialize services
-	service := services.NewService(userRepo)
+	service := services.NewService(userRepo, studentRepo)
 
 	// Initialize the Gin router
 	router := gin.Default()
