@@ -1,9 +1,10 @@
-// cmd/main.go
 package main
 
 import (
 	"Group03-EX-StudentManagementAppBE/config"
 	"Group03-EX-StudentManagementAppBE/internal/app"
+	"Group03-EX-StudentManagementAppBE/internal/repositories/faculty"
+	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/user"
 	"Group03-EX-StudentManagementAppBE/internal/services"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -56,12 +58,24 @@ func main() {
 
 	// Initialize repositories
 	userRepo := user.NewRepository(db)
+	studentRepo := student.NewRepository(db)
+	facultyRepo := faculty.NewRepository(db)
 
 	// Initialize services
-	service := services.NewService(userRepo)
+	service := services.NewService(userRepo, studentRepo, facultyRepo)
 
 	// Initialize the Gin router
 	router := gin.Default()
+
+	// Add CORS middleware
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Content-Length", "Accept-Encoding", "X-CSRF-Token", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	// Setup the application (connect handlers, services, etc.)
 	app.Setup(router, service)
