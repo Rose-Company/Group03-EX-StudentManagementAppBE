@@ -21,6 +21,9 @@ func NewHandler(service *services.Service) *Handler {
 func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 	studentGroup := rg.Group("/v1/students")
 	{
+		studentGroup.DELETE("/:id", middleware.UserAuthentication, h.DeleteByID)
+		studentGroup.PUT("/:id", middleware.UserAuthentication, h.UpdateStudent)
+		studentGroup.POST("/create", middleware.UserAuthentication, h.CreateAStudent)
 		studentGroup.GET("/:id", middleware.UserAuthentication, h.GetByID)
 		studentGroup.GET("", middleware.UserAuthentication, h.GetList)
 	}
