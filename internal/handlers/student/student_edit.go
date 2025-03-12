@@ -3,6 +3,7 @@ package student
 import (
 	"Group03-EX-StudentManagementAppBE/common"
 	models "Group03-EX-StudentManagementAppBE/internal/models/student"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -42,6 +43,7 @@ func (h *Handler) UpdateStudent(c *gin.Context) {
 	}
 
 	id := c.Param("id")
+	fmt.Println(id)
 	var student models.Student
 	if err := c.ShouldBindJSON(&student); err != nil {
 		common.AbortWithError(c, common.ErrInvalidInput)

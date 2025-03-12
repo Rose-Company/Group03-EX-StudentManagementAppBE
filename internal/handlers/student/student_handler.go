@@ -22,9 +22,9 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 	studentGroup := rg.Group("/v1/students")
 	{
 		studentGroup.DELETE("/:id", middleware.UserAuthentication, h.DeleteByID)
-		studentGroup.PUT("/:id", middleware.UserAuthentication, h.UpdateStudent)
 		studentGroup.POST("/create", middleware.UserAuthentication, h.CreateAStudent)
+		studentGroup.PUT("/:id", middleware.UserAuthentication, h.UpdateStudent)
 		studentGroup.GET("/:id", middleware.UserAuthentication, h.GetByID)
-		studentGroup.GET("", middleware.UserAuthentication, h.GetList)
+		studentGroup.GET("/", middleware.UserAuthentication, h.GetList)
 	}
 }
