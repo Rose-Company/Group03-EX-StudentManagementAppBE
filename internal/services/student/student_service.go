@@ -1,9 +1,13 @@
 package student
 
 import (
+	"Group03-EX-StudentManagementAppBE/common"
+	models2 "Group03-EX-StudentManagementAppBE/internal/models"
 	models "Group03-EX-StudentManagementAppBE/internal/models/student"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
 	"context"
+
+	"gorm.io/gorm"
 )
 
 type studentService struct {
@@ -22,4 +26,48 @@ func (s *studentService) GetByID(ctx context.Context, id string) (*models.Studen
 		return nil, err
 	}
 	return student.ToResponse(), nil
+}
+
+func (s *studentService) GetList(ctx context.Context, req *models.ListStudentRequest) (*models2.BaseListResponse, error) {
+	totalCount, err := s.studentRepo.Count(ctx, models2.QueryParams{})
+	if err != nil {
+		return nil, err
+	}
+	// Calculate page number from offset and page size
+	page := 1
+	if req.PageSize < 0 {
+		return nil, common.ErrInvalidInput
+	}
+	offset := (req.Page - 1) * req.PageSize
+
+	// Get the paginated list of students
+	students, err := s.studentRepo.List(ctx, models2.QueryParams{
+		Offset: offset,
+		Limit:  req.PageSize,
+		QuerySort: models2.QuerySort{
+			Origin: req.Sort,
+		},
+	}, func(tx *gorm.DB) {
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert students to response DTOs
+	var studentResponses []*models.StudentResponse
+	for _, student := range students {
+		studentResponses = append(studentResponses, student.ToResponse())
+	}
+
+	// Create the paginated response
+	response := &models2.BaseListResponse{
+		Total:    int(totalCount),
+		Page:     page,
+		PageSize: req.PageSize,
+		Items:    studentResponses,
+		Extra:    nil, // Add extra data if needed
+	}
+
+	return response, nil
 }

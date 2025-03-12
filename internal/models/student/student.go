@@ -2,6 +2,7 @@ package models
 
 import (
 	"Group03-EX-StudentManagementAppBE/common"
+	"Group03-EX-StudentManagementAppBE/internal/models"
 	"time"
 
 	"github.com/google/uuid"
@@ -65,4 +66,8 @@ func (s *Student) ToResponse() *StudentResponse {
 		CreatedAt:   s.CreatedAt,
 		UpdatedAt:   s.UpdatedAt,
 	}
+}
+
+type ListStudentRequest struct {
+	models.BaseRequestParamsUri
 }
