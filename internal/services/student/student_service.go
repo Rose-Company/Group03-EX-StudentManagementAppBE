@@ -30,12 +30,17 @@ func (s *studentService) GetByID(ctx context.Context, id string) (*models.Studen
 }
 
 func (s *studentService) GetList(ctx context.Context, req *models.ListStudentRequest) (*models2.BaseListResponse, error) {
+	if req.Sort == "" {
+		req.Sort = "student_code.asc"
+	}
+
 	totalCount, err := s.studentRepo.Count(ctx, models2.QueryParams{})
 	if err != nil {
 		return nil, err
 	}
 	// Calculate page number from offset and page size
-	page := 1
+	// Calculate page number from offset and page size
+
 	if req.PageSize < 0 {
 		return nil, common.ErrInvalidInput
 	}
@@ -64,7 +69,7 @@ func (s *studentService) GetList(ctx context.Context, req *models.ListStudentReq
 	// Create the paginated response
 	response := &models2.BaseListResponse{
 		Total:    int(totalCount),
-		Page:     page,
+		Page:     req.Page,
 		PageSize: req.PageSize,
 		Items:    studentResponses,
 		Extra:    nil, // Add extra data if needed
