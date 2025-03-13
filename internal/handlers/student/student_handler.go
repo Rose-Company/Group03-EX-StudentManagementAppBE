@@ -21,10 +21,11 @@ func NewHandler(service *services.Service) *Handler {
 func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 	studentGroup := rg.Group("/v1/students")
 	{
+		studentGroup.GET("/test", middleware.UserAuthentication, h.GetList)
 		studentGroup.DELETE("/:id", middleware.UserAuthentication, h.DeleteByID)
 		studentGroup.POST("/create", middleware.UserAuthentication, h.CreateAStudent)
 		studentGroup.PUT("/:id", middleware.UserAuthentication, h.UpdateStudent)
 		studentGroup.GET("/:id", middleware.UserAuthentication, h.GetByID)
-		studentGroup.GET("", middleware.UserAuthentication, h.GetList)
+
 	}
 }
