@@ -27,3 +27,19 @@ func (h *Handler) GetList(c *gin.Context) {
 	}
 	c.JSON(common.SUCCESS_STATUS, students)
 }
+
+func (h *Handler) GetStatuses(c *gin.Context) {
+	ok, _ := common.ProfileFromJwt(c)
+	if !ok {
+		common.AbortWithError(c, common.ErrInvalidToken)
+		return
+	}
+
+	studentStatuses, err := h.Service.Student.GetStatuses(c)
+	if err != nil {
+		common.AbortWithError(c, err)
+		return
+	}
+	c.JSON(common.SUCCESS_STATUS, studentStatuses)
+
+}
