@@ -6,7 +6,6 @@ import (
 	models "Group03-EX-StudentManagementAppBE/internal/models/student"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
 	"context"
-	"errors"
 
 	"gorm.io/gorm"
 )
@@ -96,7 +95,7 @@ func (s *studentService) GetList(ctx context.Context, req *models.ListStudentReq
 
 func (s *studentService) CreateAStudent(ctx context.Context, student *models.Student) (*models.StudentResponse, error) {
 	if student == nil {
-		return nil, errors.New("student data is required")
+		return nil, common.ErrInvalidInput
 	}
 	createdStudent, err := s.studentRepo.Create(ctx, student)
 	if err != nil {
@@ -108,7 +107,7 @@ func (s *studentService) CreateAStudent(ctx context.Context, student *models.Stu
 
 func (s *studentService) UpdateStudent(ctx context.Context, id string, student *models.Student) (*models.StudentResponse, error) {
 	if student == nil {
-		return nil, errors.New("student data is required")
+		return nil, common.ErrInvalidInput
 	}
 	updatedStudent, err := s.studentRepo.Update(ctx, id, student)
 	if err != nil {
