@@ -25,6 +25,6 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 		studentGroup.POST("/create", middleware.UserAuthentication, h.CreateAStudent)
 		studentGroup.PUT("/:id", middleware.UserAuthentication, h.UpdateStudent)
 		studentGroup.GET("/:id", middleware.UserAuthentication, h.GetByID)
-		studentGroup.GET("/", middleware.UserAuthentication, h.GetList)
+		studentGroup.GET("", middleware.UserAuthentication, h.GetList)
 	}
 }

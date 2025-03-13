@@ -75,3 +75,33 @@ func (s *authService) generateJWTToken(user *models.User) (*string, error) {
 
 	return &tokenString, nil
 }
+
+// refreshJWTToken refreshes a JWT token
+// func (s *authService) refreshJWTToken(tokenString string) (*string, error) {
+// 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+// 		return s.jwtSecret, nil
+// 	})
+
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	claims, ok := token.Claims.(jwt.MapClaims)
+// 	if !ok || !token.Valid {
+// 		return nil, common.ErrInvalidToken
+// 	}
+
+// 	newToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+// 		"id":    claims["id"],
+// 		"email": claims["email"],
+// 		"role":  claims["role"],
+// 		"exp":   time.Now().Add(24 * time.Hour).Unix(),
+// 	})
+
+// 	newTokenString, err := newToken.SignedString(s.jwtSecret)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	return &newTokenString, nil
+// }
