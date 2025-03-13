@@ -33,11 +33,20 @@ func (s *studentService) GetList(ctx context.Context, req *models.ListStudentReq
 		req.Sort = "student_code.asc"
 	}
 
-	totalCount, err := s.studentRepo.Count(ctx, models2.QueryParams{})
+	totalCount, err := s.studentRepo.Count(ctx, models2.QueryParams{}, func(tx *gorm.DB) {
+		// Apply student_code filter if provided
+		if req.StudentCode != "" {
+			tx.Where("student_code = ?", req.StudentCode)
+		}
+
+		// Apply fullname filter if provided
+		if req.Fullname != "" {
+			tx.Where("fullname LIKE ?", "%"+req.Fullname+"%")
+		}
+	})
 	if err != nil {
 		return nil, err
 	}
-	// Calculate page number from offset and page size
 	// Calculate page number from offset and page size
 
 	if req.PageSize < 0 {
@@ -53,6 +62,13 @@ func (s *studentService) GetList(ctx context.Context, req *models.ListStudentReq
 			Origin: req.Sort,
 		},
 	}, func(tx *gorm.DB) {
+		if req.StudentCode != "" {
+			tx.Where("student_code = ?", req.StudentCode)
+		}
+
+		if req.Fullname != "" {
+			tx.Where("fullname LIKE ?", "%"+req.Fullname+"%")
+		}
 	})
 
 	if err != nil {
