@@ -55,6 +55,23 @@ func main() {
 	if err != nil {
 		panic("Failed to connect to the database")
 	}
+
+	// Initialize the Gin router - use New() instead of Default()
+	router := gin.New()
+
+	// Add recovery and logger explicitly
+	router.Use(gin.Recovery())
+	router.Use(gin.Logger())
+
+	// Apply CORS middleware with simpler configuration
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowHeaders:     []string{"*"}, // Allow all headers
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
 	// Initialize repositories
 	userRepo := user.NewRepository(db)
 	studentRepo := student.NewRepository(db)
@@ -62,17 +79,6 @@ func main() {
 
 	// Initialize services
 	service := services.NewService(userRepo, studentRepo, facultyRepo)
-
-	// Initialize the Gin router
-	router := gin.Default()
-	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Content-Length", "Accept-Encoding", "X-CSRF-Token", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
-	}))
 
 	// Setup the application (connect handlers, services, etc.)
 	app.Setup(router, service)

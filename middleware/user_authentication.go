@@ -23,12 +23,17 @@ func init() {
 }
 
 func UserAuthentication(c *gin.Context) {
+	// Skip authentication for OPTIONS requests
+	if c.Request.Method == "OPTIONS" {
+		c.Next()
+		return
+	}
+
 	authorization := c.GetHeader("Authorization")
 	if authorization == "" {
 		c.AbortWithStatusJSON(common.UNAUTHORIZED_STATUS, gin.H{"error": "Authorization header is required"})
 		return
 	}
-
 	arr := strings.Split(authorization, "Bearer ")
 	fmt.Println(arr)
 	if len(arr) < 2 {
@@ -70,7 +75,6 @@ func UserAuthentication(c *gin.Context) {
 		c.AbortWithStatusJSON(common.UNAUTHORIZED_STATUS, gin.H{"error": "Token unauthorized"})
 	}
 }
-
 func OptionalUserAuthentication() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authorization := c.GetHeader("Authorization")
