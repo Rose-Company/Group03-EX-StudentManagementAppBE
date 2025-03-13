@@ -14,4 +14,5 @@ type Service interface {
 	CreateAStudent(ctx context.Context, req *models.Student) (*models.StudentResponse, error)
 	UpdateStudent(ctx context.Context, id string, req *models.Student) (*models.StudentResponse, error)
 	DeleteByID(ctx context.Context, id string) error
+	GetStatuses(ctx context.Context) ([]*models.StudentStatus, error)
 }

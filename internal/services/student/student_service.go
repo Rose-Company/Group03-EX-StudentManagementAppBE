@@ -5,18 +5,21 @@ import (
 	models2 "Group03-EX-StudentManagementAppBE/internal/models"
 	models "Group03-EX-StudentManagementAppBE/internal/models/student"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
+	"Group03-EX-StudentManagementAppBE/internal/repositories/student_status"
 	"context"
 
 	"gorm.io/gorm"
 )
 
 type studentService struct {
-	studentRepo student.Repository
+	studentRepo       student.Repository
+	studentStatusRepo student_status.Repository
 }
 
-func NewService(studentRepo student.Repository) Service {
+func NewService(studentRepo student.Repository, studentStatusRepo student_status.Repository) Service {
 	return &studentService{
-		studentRepo: studentRepo,
+		studentRepo:       studentRepo,
+		studentStatusRepo: studentStatusRepo,
 	}
 }
 
@@ -104,7 +107,6 @@ func (s *studentService) CreateAStudent(ctx context.Context, student *models.Stu
 	return createdStudent.ToResponse(), nil
 }
 
-
 func (s *studentService) UpdateStudent(ctx context.Context, id string, student *models.Student) (*models.StudentResponse, error) {
 	if student == nil {
 		return nil, common.ErrInvalidInput
@@ -118,4 +120,14 @@ func (s *studentService) UpdateStudent(ctx context.Context, id string, student *
 
 func (s *studentService) DeleteByID(ctx context.Context, id string) error {
 	return s.studentRepo.DeleteByID(ctx, id)
+}
+
+func (s *studentService) GetStatuses(ctx context.Context) ([]*models.StudentStatus, error) {
+	studentStatus, err := s.studentStatusRepo.List(ctx, models2.QueryParams{}, func(tx *gorm.DB) {
+
+	})
+	if err != nil {
+		return nil, err
+	}
+	return studentStatus, nil
 }

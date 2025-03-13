@@ -5,6 +5,7 @@ import (
 	"Group03-EX-StudentManagementAppBE/internal/app"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/faculty"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
+	"Group03-EX-StudentManagementAppBE/internal/repositories/student_status"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/user"
 	"Group03-EX-StudentManagementAppBE/internal/services"
 	"fmt"
@@ -76,9 +77,10 @@ func main() {
 	userRepo := user.NewRepository(db)
 	studentRepo := student.NewRepository(db)
 	facultyRepo := faculty.NewRepository(db)
+	studentStatusRepo := student_status.NewRepository(db)
 
 	// Initialize services
-	service := services.NewService(userRepo, studentRepo, facultyRepo)
+	service := services.NewService(userRepo, studentRepo, facultyRepo, studentStatusRepo)
 
 	// Setup the application (connect handlers, services, etc.)
 	app.Setup(router, service)
