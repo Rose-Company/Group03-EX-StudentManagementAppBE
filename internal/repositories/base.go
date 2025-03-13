@@ -30,6 +30,7 @@ type BaseRepository[M Model] interface {
 	CountWithGroup(ctx context.Context, params models.QueryParams, groupBy string, clauses ...Clause) (map[string]int64, error)
 	UpdatesColumnsByConditions(ctx context.Context, columns map[string]interface{}, clauses ...Clause) error
 	GetList(ctx context.Context) ([]M, error)
+	DeleteByID(ctx context.Context, id string) error
 }
 
 type baseRepository[M Model] struct {
@@ -232,4 +233,11 @@ func (b *baseRepository[M]) GetList(ctx context.Context) ([]M, error) {
 		return nil, err
 	}
 	return entities, nil
+}
+
+func (b *baseRepository[M]) DeleteByID(ctx context.Context, id string) error {
+	var o *M
+	tx := b.db.Model(b.model)
+	err := tx.Where("id = ?", id).Delete(&o).Error
+	return err
 }
