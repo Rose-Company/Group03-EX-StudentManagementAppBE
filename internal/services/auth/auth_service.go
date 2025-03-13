@@ -55,9 +55,11 @@ func (s *authService) LoginUser(ctx context.Context, req models.LoginRequest) (*
 
 	return &models.LoginResponse{
 		Code:  200,
+		ID:    user.ID,  
 		Token: *tokenString,
 	}, nil
 }
+
 
 // generateJWTToken generates a JWT token for authentication
 func (s *authService) generateJWTToken(user *models.User) (*string, error) {
