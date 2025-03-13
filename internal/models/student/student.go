@@ -70,4 +70,6 @@ func (s *Student) ToResponse() *StudentResponse {
 
 type ListStudentRequest struct {
 	models.BaseRequestParamsUri
+	StudentCode string `form:"student_code"`
+	Fullname    string `form:"fullname"`
 }
