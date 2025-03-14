@@ -24,7 +24,9 @@ func NewService(studentRepo student.Repository, studentStatusRepo student_status
 }
 
 func (s *studentService) GetByID(ctx context.Context, id string) (*models.StudentResponse, error) {
-	student, err := s.studentRepo.GetByID(ctx, id)
+	student, err := s.studentRepo.GetDetailByConditions(ctx, func(tx *gorm.DB) {
+		tx.Where("student_code = ?", id)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -111,11 +113,13 @@ func (s *studentService) UpdateStudent(ctx context.Context, id string, student *
 	if student == nil {
 		return nil, common.ErrInvalidInput
 	}
-	updatedStudent, err := s.studentRepo.Update(ctx, id, student)
+	err := s.studentRepo.UpdatesByConditions(ctx, student, func(tx *gorm.DB) {
+		tx.Where("student_code = ?", id)
+	})
 	if err != nil {
 		return nil, err
 	}
-	return updatedStudent.ToResponse(), nil
+	return nil, nil
 }
 
 func (s *studentService) DeleteByID(ctx context.Context, id string) error {
