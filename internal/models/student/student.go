@@ -21,7 +21,6 @@ type Student struct {
 	Email       string    `json:"email" gorm:"type:text;unique"`
 	Phone       string    `json:"phone" gorm:"type:text"`
 	StatusID    int       `json:"status_id" gorm:"type:integer;references:student_statuses(id)"`
-	UserID      uuid.UUID `json:"user_id" gorm:"type:uuid;references:users(id)"`
 	CreatedAt   time.Time `json:"created_at" gorm:"type:timestamptz;default:CURRENT_TIMESTAMP"`
 	UpdatedAt   time.Time `json:"updated_at" gorm:"type:timestamptz;default:CURRENT_TIMESTAMP"`
 }
@@ -62,7 +61,6 @@ func (s *Student) ToResponse() *StudentResponse {
 		Email:       s.Email,
 		Phone:       s.Phone,
 		StatusID:    s.StatusID,
-		UserID:      s.UserID,
 		CreatedAt:   s.CreatedAt,
 		UpdatedAt:   s.UpdatedAt,
 	}
