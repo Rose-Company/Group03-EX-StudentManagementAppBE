@@ -8,7 +8,8 @@ import (
 )
 
 type Config struct {
-	Postgres PostgresConfig
+	Postgres  PostgresConfig
+	JWTSecret string
 }
 
 type PostgresConfig struct {
@@ -32,6 +33,7 @@ func LoadConfig() (*Config, error) {
 			User:     os.Getenv("DB_USER"),
 			Password: os.Getenv("DB_PASSWORD"),
 		},
+		JWTSecret: os.Getenv("JWT_SECRET"),
 	}
 	return config, nil
 }

@@ -29,6 +29,8 @@ type BaseRepository[M Model] interface {
 	UpdatesByConditions(ctx context.Context, o *M, clauses ...Clause) error
 	CountWithGroup(ctx context.Context, params models.QueryParams, groupBy string, clauses ...Clause) (map[string]int64, error)
 	UpdatesColumnsByConditions(ctx context.Context, columns map[string]interface{}, clauses ...Clause) error
+	GetList(ctx context.Context) ([]M, error)
+	DeleteByID(ctx context.Context, id string) error
 }
 
 type baseRepository[M Model] struct {
@@ -222,5 +224,20 @@ func (b *baseRepository[M]) UpdatesColumnsByConditions(ctx context.Context, colu
 		f(tx)
 	}
 	err := tx.Updates(columns).Error
+	return err
+}
+
+func (b *baseRepository[M]) GetList(ctx context.Context) ([]M, error) {
+	var entities []M
+	if err := b.db.Find(&entities).Error; err != nil {
+		return nil, err
+	}
+	return entities, nil
+}
+
+func (b *baseRepository[M]) DeleteByID(ctx context.Context, id string) error {
+	var o *M
+	tx := b.db.Model(b.model)
+	err := tx.Where("id = ?", id).Delete(&o).Error
 	return err
 }

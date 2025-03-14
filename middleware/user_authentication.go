@@ -1,25 +1,41 @@
 package middleware
 
 import (
-	"Group03-EX-StudentManagementAppBE/internal/common"
+	"Group03-EX-StudentManagementAppBE/common"
 	"fmt"
 	"strings"
 	"time"
+
+	cfg "Group03-EX-StudentManagementAppBE/config"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var secretKey = []byte("your_secret_key")
+var secretKey []byte
+
+func init() {
+	config, err := cfg.LoadConfig()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to load config: %v", err))
+	}
+	secretKey = []byte(config.JWTSecret)
+}
 
 func UserAuthentication(c *gin.Context) {
+	// Skip authentication for OPTIONS requests
+	if c.Request.Method == "OPTIONS" {
+		c.Next()
+		return
+	}
+
 	authorization := c.GetHeader("Authorization")
 	if authorization == "" {
 		c.AbortWithStatusJSON(common.UNAUTHORIZED_STATUS, gin.H{"error": "Authorization header is required"})
 		return
 	}
-
 	arr := strings.Split(authorization, "Bearer ")
+	fmt.Println(arr)
 	if len(arr) < 2 {
 		c.AbortWithStatusJSON(common.UNAUTHORIZED_STATUS, gin.H{"error": "Token is required"})
 		return
@@ -59,7 +75,6 @@ func UserAuthentication(c *gin.Context) {
 		c.AbortWithStatusJSON(common.UNAUTHORIZED_STATUS, gin.H{"error": "Token unauthorized"})
 	}
 }
-
 func OptionalUserAuthentication() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authorization := c.GetHeader("Authorization")
@@ -89,6 +104,5 @@ func OptionalUserAuthentication() gin.HandlerFunc {
 			}
 		}
 		c.Next()
-
 	}
 }
