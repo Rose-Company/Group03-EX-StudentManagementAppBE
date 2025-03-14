@@ -101,7 +101,7 @@ INSERT INTO "PUBLIC".users (email, password, role_id) VALUES
 
 -- Initialize students (50 records)
 INSERT INTO "PUBLIC".students 
-(id, student_code, fullname, date_of_birth, gender, faculty_id, batch, program, address, email, phone, status_id, user_id)
+(id, student_code, fullname, date_of_birth, gender, faculty_id, batch, program, address, email, phone, status_id)
 VALUES
 -- School of Law (faculty_id = 1, faculty code = 10)
 (gen_random_uuid(), 22100001, 'John Smith', '2000-05-15', 'Male', 1, '2022', 'Bachelor of Law', '123 Main St, Apt 4B', 'john.smith@email.com', '555-123-4567', 1, NULL),
