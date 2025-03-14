@@ -60,7 +60,6 @@ CREATE TABLE "PUBLIC".students (
     email TEXT UNIQUE,
     phone TEXT,
     status_id INTEGER REFERENCES "PUBLIC".student_statuses(id),
-    user_id UUID REFERENCES "PUBLIC".users(id),
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
