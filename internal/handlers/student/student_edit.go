@@ -29,7 +29,7 @@ func (h *Handler) CreateAStudent(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, common.Response{
-		Code:    common.REQUEST_SUCCESS,
+		Code:    200,
 		Message: "Student created successfully",
 		Data:    createdStudent,
 	})
@@ -57,7 +57,7 @@ func (h *Handler) UpdateStudent(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, common.Response{
-		Code:    common.REQUEST_SUCCESS,
+		Code:    200,
 		Message: "Student updated successfully",
 		Data:    updatedStudent,
 	})
@@ -78,7 +78,7 @@ func (h *Handler) DeleteByID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, common.Response{
-		Code:    common.REQUEST_SUCCESS,
+		Code:    200,
 		Message: "Student deleted successfully",
 	})
 }

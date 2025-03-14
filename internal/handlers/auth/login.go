@@ -16,11 +16,16 @@ func (h *Handler) LogIn(c *gin.Context) {
 		return
 	}
 
-	token, err := h.Service.Auth.LoginUser(c, req)
+	loginResp, err := h.Service.Auth.LoginUser(c, req)
 	if err != nil {
 		common.AbortWithError(c, err)
 		return
 	}
 
-	c.JSON(common.SUCCESS_STATUS, token)
+	// Trả về ID cùng với Token
+	c.JSON(common.SUCCESS_STATUS, gin.H{
+		"code":  loginResp.Code,
+		"id":    loginResp.ID,  
+		"token": loginResp.Token,
+	})
 }
