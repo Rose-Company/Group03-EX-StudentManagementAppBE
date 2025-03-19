@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (h *Handler) GetByID(c *gin.Context) {
+func (h *Handler) GetStudentByID(c *gin.Context) {
 	ok, _ := common.ProfileFromJwt(c)
 	if !ok {
 		common.AbortWithError(c, common.ErrInvalidToken)

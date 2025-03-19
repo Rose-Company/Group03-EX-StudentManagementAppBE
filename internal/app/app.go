@@ -12,27 +12,15 @@ import (
 
 // Setup initializes and connects all components
 func Setup(router *gin.Engine, service *services.Service) {
-	// Create API group
-	authen := router.Group("")
-	{
-		authHandler := auth.NewHandler(service)
-		authHandler.RegisterRoutes(authen)
-	}
+	api := router.Group("")
 
-	studentGroup := router.Group("")
-	{
-		studentHandler := student.NewHandler(service)
-		studentHandler.RegisterRoutes(studentGroup)
-	}
+	// Initialize handlers and register their routes
+	authHandler := auth.NewHandler(service)
+	authHandler.RegisterRoutes(api)
 
-	facultyGroup := router.Group("")
-	{
-		facultyHandler := faculty.NewHandler(service)
-		facultyHandler.RegisterRoutes(facultyGroup)
-	}
+	studentHandler := student.NewHandler(service)
+	studentHandler.RegisterRoutes(api)
 
-	// Register feature-specific routes
-
-	//When you add more features, register their routes here:
-
+	facultyHandler := faculty.NewHandler(service)
+	facultyHandler.RegisterRoutes(api)
 }
