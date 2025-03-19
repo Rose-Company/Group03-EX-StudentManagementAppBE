@@ -4,6 +4,7 @@ import (
 	"Group03-EX-StudentManagementAppBE/config"
 	"Group03-EX-StudentManagementAppBE/internal/app"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/faculty"
+	"Group03-EX-StudentManagementAppBE/internal/repositories/program"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student_status"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/user"
@@ -112,6 +113,7 @@ type repositoriesContainer struct {
 	studentRepo       student.Repository
 	facultyRepo       faculty.Repository
 	studentStatusRepo student_status.Repository
+	programRepo       program.Repository
 }
 
 func initRepositories(db *gorm.DB) *repositoriesContainer {
@@ -120,6 +122,7 @@ func initRepositories(db *gorm.DB) *repositoriesContainer {
 		studentRepo:       student.NewRepository(db),
 		facultyRepo:       faculty.NewRepository(db),
 		studentStatusRepo: student_status.NewRepository(db),
+		programRepo:       program.NewRepository(db),
 	}
 }
 
@@ -129,6 +132,7 @@ func initServices(repos *repositoriesContainer) *services.Service {
 		repos.studentRepo,
 		repos.facultyRepo,
 		repos.studentStatusRepo,
+		repos.programRepo,
 	)
 }
 

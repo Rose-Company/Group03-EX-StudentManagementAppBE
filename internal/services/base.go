@@ -3,11 +3,13 @@ package services
 import (
 	"Group03-EX-StudentManagementAppBE/config"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/faculty"
+	"Group03-EX-StudentManagementAppBE/internal/repositories/program"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student_status"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/user"
 	"Group03-EX-StudentManagementAppBE/internal/services/auth"
 	facultyService "Group03-EX-StudentManagementAppBE/internal/services/faculty"
+	programService "Group03-EX-StudentManagementAppBE/internal/services/program"
 	studentService "Group03-EX-StudentManagementAppBE/internal/services/student"
 )
 
@@ -16,10 +18,11 @@ type Service struct {
 	Auth    auth.Service
 	Student studentService.Service
 	Faculty facultyService.Service
+	Program programService.Service
 }
 
 // NewService creates a new service container with all dependencies
-func NewService(userRepo user.Repository, studentRepo student.Repository, facultyRepo faculty.Repository, studentStatusRepo student_status.Repository) *Service {
+func NewService(userRepo user.Repository, studentRepo student.Repository, facultyRepo faculty.Repository, studentStatusRepo student_status.Repository, programRepo program.Repository) *Service {
 	// Load config for JWT secret
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -30,10 +33,12 @@ func NewService(userRepo user.Repository, studentRepo student.Repository, facult
 	authSvc := auth.NewAuthService(userRepo, cfg.JWTSecret)
 	studentSvc := studentService.NewStudentService(studentRepo, studentStatusRepo)
 	facultySvc := facultyService.NewFalcutyService(facultyRepo)
+	programSvc := programService.NewProgramService(programRepo)
 
 	return &Service{
 		Auth:    authSvc,
 		Student: studentSvc,
 		Faculty: facultySvc,
+		Program: programSvc,
 	}
 }
