@@ -29,13 +29,14 @@ func (h *Handler) GetStudentList(c *gin.Context) {
 }
 
 func (h *Handler) GetStudentStatuses(c *gin.Context) {
+	sort := c.Query("sort")
 	ok, _ := common.ProfileFromJwt(c)
 	if !ok {
 		common.AbortWithError(c, common.ErrInvalidToken)
 		return
 	}
 
-	studentStatuses, err := h.Service.Student.GetStatuses(c)
+	studentStatuses, err := h.Service.Student.GetStatuses(c, sort)
 	if err != nil {
 		common.AbortWithError(c, err)
 		return

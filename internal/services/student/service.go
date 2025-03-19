@@ -18,7 +18,10 @@ type Service interface {
 	CreateAStudent(ctx context.Context, req *models.Student) (*models.StudentResponse, error)
 	UpdateStudent(ctx context.Context, id string, req *models.Student) (*models.StudentResponse, error)
 	DeleteByID(ctx context.Context, id string) error
-	GetStatuses(ctx context.Context) ([]*models.StudentStatus, error)
+	GetStatuses(ctx context.Context, sort string) ([]*models.StudentStatus, error)
+	CreateStudentStatus(ctx context.Context, studentStatus *models.StudentStatus) (*models.StudentStatus, error)
+	UpdateStudentStatus(ctx context.Context,id string, studentStatus *models.StudentStatus) (*models.StudentStatus, error)
+	DeleteStudentStatus(ctx context.Context, id string) error
 }
 
 type studentService struct {
@@ -132,12 +135,41 @@ func (s *studentService) DeleteByID(ctx context.Context, id string) error {
 	return s.studentRepo.DeleteByID(ctx, id)
 }
 
-func (s *studentService) GetStatuses(ctx context.Context) ([]*models.StudentStatus, error) {
-	studentStatus, err := s.studentStatusRepo.List(ctx, models2.QueryParams{}, func(tx *gorm.DB) {
 
-	})
+func (s *studentService) GetStatuses(ctx context.Context, sort string) ([]*models.StudentStatus, error) {
+	// Cấu hình query params để truyền sort
+	queryParams := models2.QueryParams{
+		QuerySort: models2.QuerySort{
+			Sort: sort, // Truyền sort vào QuerySort
+		},
+	}
+
+	// Gọi repository với query params đã có sort
+	studentStatus, err := s.studentStatusRepo.List(ctx, queryParams)
 	if err != nil {
 		return nil, err
 	}
+
 	return studentStatus, nil
+}
+
+
+func (s *studentService) CreateStudentStatus(ctx context.Context, studentStatus *models.StudentStatus) (*models.StudentStatus, error) {
+	createdStudentStatus, err := s.studentStatusRepo.Create(ctx, studentStatus)
+	if err != nil {
+		return nil, err
+	}
+	return createdStudentStatus, nil
+}
+
+func (s *studentService) UpdateStudentStatus(ctx context.Context,id string, studentStatus *models.StudentStatus) (*models.StudentStatus, error) {
+	updatedStudentStatus, err := s.studentStatusRepo.Update(ctx,id, studentStatus)
+	if err != nil {
+		return nil, err
+	}
+	return updatedStudentStatus, nil
+}
+
+func (s *studentService) DeleteStudentStatus(ctx context.Context, id string) error {
+	return s.studentStatusRepo.DeleteByID(ctx, id)
 }

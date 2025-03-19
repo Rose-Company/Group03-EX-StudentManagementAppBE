@@ -70,13 +70,19 @@ type ListStudentRequest struct {
 	models.BaseRequestParamsUri
 	StudentCode string `form:"student_code"`
 	Fullname    string `form:"fullname"`
+	Sort        string `form:"sort"` 
 }
 
 type StudentStatus struct {
 	ID   int    `json:"id" gorm:"type:serial;primary_key"`
 	Name string `json:"name" gorm:"type:text;not null"`
+
 }
 
 func (s *StudentStatus) TableName() string {
 	return common.POSTGRES_TABLE_NAME_STUDENTS_STATUSES
+}
+
+type ListStudentStatusResponse struct {
+	Items []*StudentStatus `json:"items"`
 }

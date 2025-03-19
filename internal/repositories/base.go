@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"Group03-EX-StudentManagementAppBE/common"
-	"Group03-EX-StudentManagementAppBE/internal/models"
+	models "Group03-EX-StudentManagementAppBE/internal/models"
 	"context"
 
 	"gorm.io/gorm"
@@ -31,6 +31,7 @@ type BaseRepository[M Model] interface {
 	UpdatesColumnsByConditions(ctx context.Context, columns map[string]interface{}, clauses ...Clause) error
 	GetList(ctx context.Context) ([]M, error)
 	DeleteByID(ctx context.Context, id string) error
+	GetListFaculty(ctx context.Context, sort string) ([]M, error)
 }
 
 type baseRepository[M Model] struct {
@@ -47,15 +48,15 @@ func NewBaseRepository[M Model](db *gorm.DB) BaseRepository[M] {
 
 func (b *baseRepository[M]) List(ctx context.Context, params models.QueryParams, clauses ...Clause) ([]*M, error) {
 	var oList []*M
-	tx := b.db.
-		Model(b.model).
-		Offset(params.Offset)
+	tx := b.db.Model(b.model).Offset(params.Offset)
 
 	if params.Limit > 0 {
 		tx = tx.Limit(params.Limit)
 	}
-	if len(params.QuerySort.Parse()) > 0 {
-		tx = tx.Order(params.QuerySort.Parse())
+
+	// Áp dụng sắp xếp dựa trên params.QuerySort.Sort
+	if params.QuerySort.Sort != "" {
+		tx = tx.Order(params.QuerySort.Sort)
 	}
 
 	if params.Selected != nil {
@@ -69,6 +70,7 @@ func (b *baseRepository[M]) List(ctx context.Context, params models.QueryParams,
 	for _, f := range clauses {
 		f(tx)
 	}
+
 	err := tx.Find(&oList).Error
 	if err != nil {
 		return nil, err
@@ -76,6 +78,16 @@ func (b *baseRepository[M]) List(ctx context.Context, params models.QueryParams,
 
 	return oList, nil
 }
+
+func (b *baseRepository[M]) CreateAFaculty(ctx context.Context, faculty *M) (*M, error) {
+	err := b.db.Model(b.model).Create(faculty).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return faculty, nil
+}
+
 
 func (b *baseRepository[M]) Count(ctx context.Context, params models.QueryParams, clauses ...Clause) (int64, error) {
 	var count int64
@@ -240,4 +252,24 @@ func (b *baseRepository[M]) DeleteByID(ctx context.Context, id string) error {
 	tx := b.db.Model(b.model)
 	err := tx.Where("id = ?", id).Delete(&o).Error
 	return err
+}
+
+func (r *baseRepository[M]) GetListFaculty(ctx context.Context, sort string) ([]M, error) {
+    var faculties []M
+    query := r.db
+
+    // Kiểm tra tham số "sort" và áp dụng sắp xếp phù hợp
+    switch sort {
+    case "name.asc":
+        query = query.Order("name ASC")
+    case "name.desc":
+        query = query.Order("name DESC")
+    }
+
+    // Thực hiện truy vấn
+    if err := query.Find(&faculties).Error; err != nil {
+        return nil, err
+    }
+
+    return faculties, nil
 }

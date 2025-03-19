@@ -8,60 +8,62 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (h *Handler) CreateStudent(c *gin.Context) {
+
+func (h *Handler) CreateStudentStatus(c *gin.Context) {
 	ok, _ := common.ProfileFromJwt(c)
 	if !ok {
 		common.AbortWithError(c, common.ErrInvalidToken)
 		return
 	}
 
-	var student models.Student
-	if err := c.ShouldBindJSON(&student); err != nil {
+	var studentStatus models.StudentStatus
+	if err := c.ShouldBindJSON(&studentStatus); err != nil {
 		common.AbortWithError(c, common.ErrInvalidInput)
 		return
 	}
 
-	createdStudent, err := h.Service.Student.CreateAStudent(c.Request.Context(), &student)
+	createdStudentStatus, err := h.Service.Student.CreateStudentStatus(c.Request.Context(), &studentStatus)
 	if err != nil {
 		common.AbortWithError(c, err)
 		return
 	}
 
 	c.JSON(http.StatusCreated, common.Response{
-		Code:    200,
-		Message: "Student created successfully",
-		Data:    createdStudent,
+		Code:    common.SUCCESS_STATUS,
+		Message: "Student status created successfully",
+		Data:    createdStudentStatus,
 	})
 }
 
-func (h *Handler) UpdateStudent(c *gin.Context) {
+func (h *Handler) UpdateStudentStatus(c *gin.Context) {
 	ok, _ := common.ProfileFromJwt(c)
 	if !ok {
 		common.AbortWithError(c, common.ErrInvalidToken)
 		return
 	}
 
+
 	id := c.Param("id")
-	var student models.Student
-	if err := c.ShouldBindJSON(&student); err != nil {
+	var studentStatus models.StudentStatus
+	if err := c.ShouldBindJSON(&studentStatus); err != nil {
 		common.AbortWithError(c, common.ErrInvalidInput)
 		return
 	}
 
-	updatedStudent, err := h.Service.Student.UpdateStudent(c.Request.Context(), id, &student)
+	updatedStudentStatus, err := h.Service.Student.UpdateStudentStatus(c.Request.Context(),id, &studentStatus)
 	if err != nil {
 		common.AbortWithError(c, err)
 		return
 	}
 
 	c.JSON(http.StatusOK, common.Response{
-		Code:    200,
-		Message: "Student updated successfully",
-		Data:    updatedStudent,
+		Code:    common.SUCCESS_STATUS,
+		Message: "Student status updated successfully",
+		Data:    updatedStudentStatus,
 	})
 }
 
-func (h *Handler) DeleteStudentByID(c *gin.Context) {
+func (h *Handler) DeleteStudentStatus(c *gin.Context) {
 	ok, _ := common.ProfileFromJwt(c)
 	if !ok {
 		common.AbortWithError(c, common.ErrInvalidToken)
@@ -69,14 +71,14 @@ func (h *Handler) DeleteStudentByID(c *gin.Context) {
 	}
 
 	id := c.Param("id")
-	err := h.Service.Student.DeleteByID(c.Request.Context(), id)
+	err := h.Service.Student.DeleteStudentStatus(c.Request.Context(), id)
 	if err != nil {
 		common.AbortWithError(c, err)
 		return
 	}
 
 	c.JSON(http.StatusOK, common.Response{
-		Code:    200,
-		Message: "Student deleted successfully",
+		Code:    common.SUCCESS_STATUS,
+		Message: "Student status deleted successfully",
 	})
 }
