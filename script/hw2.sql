@@ -40,3 +40,20 @@ CREATE TABLE "PUBLIC".student_identity_documents (
 );
 
 CREATE INDEX idx_student_identity_documents_student_id ON "PUBLIC".student_identity_documents(student_id);
+
+CREATE TABLE "PUBLIC".activity_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    resource TEXT NOT NULL,
+    details TEXT,
+    user_name TEXT,
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for better query performance
+CREATE INDEX idx_activity_logs_user_id ON "PUBLIC".activity_logs(user_id);
+CREATE INDEX idx_activity_logs_resource ON "PUBLIC".activity_logs(resource);
+CREATE INDEX idx_activity_logs_action ON "PUBLIC".activity_logs(action);
+CREATE INDEX idx_activity_logs_created_at ON "PUBLIC".activity_logs(created_at);
