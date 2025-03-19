@@ -71,7 +71,7 @@ func (h *Handler) DeleteStudentByID(c *gin.Context) {
 	}
 
 	id := c.Param("id")
-	err := h.Service.Student.DeleteByID(c.Request.Context(), id)
+	err := h.Service.Student.DeleteStudentByID(c.Request.Context(), id)
 	if err != nil {
 		common.AbortWithError(c, err)
 		return

@@ -2,10 +2,12 @@ package common
 
 // Define New Table Name here
 const (
-	POSTGRES_TABLE_NAME_USERS             = "PUBLIC.users"
-	POSTGRES_TABLE_NAME_STUDENTS          = "PUBLIC.students"
-	POSTGRES_TABLE_NAME_FACULTY           = "PUBLIC.faculties"
-	POSTGRES_TABLE_NAME_STUDENTS_STATUSES = "PUBLIC.student_statuses"
+	POSTGRES_TABLE_NAME_USERS                      = "PUBLIC.users"
+	POSTGRES_TABLE_NAME_STUDENTS                   = "PUBLIC.students"
+	POSTGRES_TABLE_NAME_FACULTY                    = "PUBLIC.faculties"
+	POSTGRES_TABLE_NAME_STUDENTS_STATUSES          = "PUBLIC.student_statuses"
+	POSTGRES_TABLE_NAME_STUDENT_ADDRESSES          = "PUBLIC.student_addresses"
+	POSTGRES_TABLE_NAME_STUDENT_IDENTITY_DOCUMENTS = "PUBLIC.student_identity_documents"
 )
 
 const (

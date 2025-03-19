@@ -4,103 +4,147 @@ import (
 	"Group03-EX-StudentManagementAppBE/common"
 	models2 "Group03-EX-StudentManagementAppBE/internal/models"
 	models "Group03-EX-StudentManagementAppBE/internal/models/student"
+	"Group03-EX-StudentManagementAppBE/internal/repositories"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
+	student_addresses "Group03-EX-StudentManagementAppBE/internal/repositories/student_addresses"
+	student_identity_documents "Group03-EX-StudentManagementAppBE/internal/repositories/student_documents"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student_status"
 	"context"
+	"fmt"
 
 	"gorm.io/gorm"
 )
 
 type Service interface {
-	// Define the methods that the service layer should implement
-	GetByID(ctx context.Context, id string) (*models.StudentResponse, error)
-	GetList(ctx context.Context, req *models.ListStudentRequest) (*models2.BaseListResponse, error)
+	GetStudentByID(ctx context.Context, id string) (*models.StudentResponse, error)
+	GetStudentList(ctx context.Context, req *models.ListStudentRequest) (*models2.BaseListResponse, error)
 	CreateAStudent(ctx context.Context, req *models.Student) (*models.StudentResponse, error)
 	UpdateStudent(ctx context.Context, id string, req *models.Student) (*models.StudentResponse, error)
-	DeleteByID(ctx context.Context, id string) error
-	GetStatuses(ctx context.Context) ([]*models.StudentStatus, error)
+	DeleteStudentByID(ctx context.Context, id string) error
+	GetStudentStatuses(ctx context.Context) ([]*models.StudentStatus, error)
 }
 
 type studentService struct {
-	studentRepo       student.Repository
-	studentStatusRepo student_status.Repository
+	studentRepo         student.Repository
+	studentStatusRepo   student_status.Repository
+	studentAddressRepo  student_addresses.Repository
+	studentDocumentRepo student_identity_documents.Repository
 }
 
-func NewStudentService(studentRepo student.Repository, studentStatusRepo student_status.Repository) Service {
+func NewStudentService(
+	studentRepo student.Repository,
+	studentStatusRepo student_status.Repository,
+	studentAddressRepo student_addresses.Repository,
+	studentDocumentRepo student_identity_documents.Repository) Service {
 	return &studentService{
-		studentRepo:       studentRepo,
-		studentStatusRepo: studentStatusRepo,
+		studentRepo:         studentRepo,
+		studentStatusRepo:   studentStatusRepo,
+		studentAddressRepo:  studentAddressRepo,
+		studentDocumentRepo: studentDocumentRepo,
 	}
 }
 
-func (s *studentService) GetByID(ctx context.Context, id string) (*models.StudentResponse, error) {
-	student, err := s.studentRepo.GetByID(ctx, id)
+func (s *studentService) GetStudentByID(ctx context.Context, id string) (*models.StudentResponse, error) {
+	var clauses []repositories.Clause
+	clauses = append(clauses, func(tx *gorm.DB) {
+		tx.Preload("Addresses", func(db *gorm.DB) *gorm.DB {
+			return db.Order("address_type")
+		})
+	})
+
+	// Preload documents with filtering
+	clauses = append(clauses, func(tx *gorm.DB) {
+		tx.Preload("Documents", func(db *gorm.DB) *gorm.DB {
+			return db.Where("(document_type LIKE ? OR document_type LIKE ? OR document_type LIKE ?) AND student_id = ?",
+				"CCCD%", "CMND%", "Passport%", id)
+		})
+	})
+
+	clauses = append(clauses, func(tx *gorm.DB) {
+		tx.Joins(`LEFT JOIN "PUBLIC"."faculties" ON students.faculty_id = "PUBLIC"."faculties".id`)
+		tx.Select(`students.*, "PUBLIC"."faculties".name as faculty_name`).Where("students.id = ?", id)
+	})
+
+	combinedClause := func(tx *gorm.DB) {
+		for _, clause := range clauses {
+			clause(tx)
+		}
+	}
+
+	// Get student with all related data
+	student, err := s.studentRepo.GetDetailByConditions(ctx, combinedClause)
 	if err != nil {
+		fmt.Println("ERROR: ", err)
 		return nil, err
 	}
+
 	return student.ToResponse(), nil
 }
 
-func (s *studentService) GetList(ctx context.Context, req *models.ListStudentRequest) (*models2.BaseListResponse, error) {
+func (s *studentService) GetStudentList(ctx context.Context, req *models.ListStudentRequest) (*models2.BaseListResponse, error) {
 	if req.Sort == "" {
 		req.Sort = "student_code.asc"
 	}
 
-	totalCount, err := s.studentRepo.Count(ctx, models2.QueryParams{}, func(tx *gorm.DB) {
-		// Apply student_code filter if provided
-		if req.StudentCode != "" {
-			tx.Where("CAST(student_code AS TEXT) LIKE ?", req.StudentCode+"%")
-		}
+	var clauses []repositories.Clause
 
-		// Apply fullname filter if provided
-		if req.Fullname != "" {
+	if req.StudentCode != "" {
+		clauses = append(clauses, func(tx *gorm.DB) {
+			tx.Where("CAST(student_code AS TEXT) LIKE ?", req.StudentCode+"%")
+		})
+	}
+
+	if req.Fullname != "" {
+		clauses = append(clauses, func(tx *gorm.DB) {
 			tx.Where("LOWER(fullname) LIKE LOWER(?)", "%"+req.Fullname+"%")
+		})
+	}
+
+	if req.FacultyName != "" {
+		clauses = append(clauses, func(tx *gorm.DB) {
+			tx.Joins(`JOIN "PUBLIC".faculties ON students.faculty_id = faculties.id`).Where("LOWER(faculties.name) LIKE LOWER(?)", "%"+req.FacultyName+"%")
+		})
+	}
+
+	combinedClause := func(tx *gorm.DB) {
+		for _, clause := range clauses {
+			clause(tx)
 		}
-	})
+	}
+
+	totalCount, err := s.studentRepo.Count(ctx, models2.QueryParams{}, combinedClause)
 	if err != nil {
 		return nil, err
 	}
-	// Calculate page number from offset and page size
 
 	if req.PageSize < 0 {
 		return nil, common.ErrInvalidInput
 	}
 	offset := (req.Page - 1) * req.PageSize
 
-	// Get the paginated list of students
 	students, err := s.studentRepo.List(ctx, models2.QueryParams{
 		Offset: offset,
 		Limit:  req.PageSize,
 		QuerySort: models2.QuerySort{
 			Origin: req.Sort,
 		},
-	}, func(tx *gorm.DB) {
-		if req.StudentCode != "" {
-			tx.Where("CAST(student_code AS TEXT) LIKE ?", req.StudentCode+"%")
-		}
-
-		if req.Fullname != "" {
-			tx.Where("LOWER(fullname) LIKE LOWER(?)", "%"+req.Fullname+"%")
-		}
-	})
+	}, combinedClause)
 
 	if err != nil {
 		return nil, err
 	}
 
-	// Convert students to response DTOs
-	var studentResponses []*models.StudentResponse
+	var studentResponses []*models.StudentListResponse
 	for _, student := range students {
-		studentResponses = append(studentResponses, student.ToResponse())
+		studentResponses = append(studentResponses, student.ToListResponse())
 	}
 
-	// Create the paginated response
 	response := &models2.BaseListResponse{
 		Total:    int(totalCount),
 		Page:     req.Page,
 		PageSize: req.PageSize,
 		Items:    studentResponses,
-		Extra:    nil, // Add extra data if needed
+		Extra:    nil,
 	}
 
 	return response, nil
@@ -128,11 +172,11 @@ func (s *studentService) UpdateStudent(ctx context.Context, id string, student *
 	return updatedStudent.ToResponse(), nil
 }
 
-func (s *studentService) DeleteByID(ctx context.Context, id string) error {
+func (s *studentService) DeleteStudentByID(ctx context.Context, id string) error {
 	return s.studentRepo.DeleteByID(ctx, id)
 }
 
-func (s *studentService) GetStatuses(ctx context.Context) ([]*models.StudentStatus, error) {
+func (s *studentService) GetStudentStatuses(ctx context.Context) ([]*models.StudentStatus, error) {
 	studentStatus, err := s.studentStatusRepo.List(ctx, models2.QueryParams{}, func(tx *gorm.DB) {
 
 	})
