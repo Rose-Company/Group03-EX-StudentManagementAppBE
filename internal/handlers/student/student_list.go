@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (h *Handler) GetList(c *gin.Context) {
+func (h *Handler) GetStudentList(c *gin.Context) {
 	ok, _ := common.ProfileFromJwt(c)
 	if !ok {
 		common.AbortWithError(c, common.ErrInvalidToken)
@@ -28,7 +28,7 @@ func (h *Handler) GetList(c *gin.Context) {
 	c.JSON(common.SUCCESS_STATUS, students)
 }
 
-func (h *Handler) GetStatuses(c *gin.Context) {
+func (h *Handler) GetStudentStatuses(c *gin.Context) {
 	ok, _ := common.ProfileFromJwt(c)
 	if !ok {
 		common.AbortWithError(c, common.ErrInvalidToken)

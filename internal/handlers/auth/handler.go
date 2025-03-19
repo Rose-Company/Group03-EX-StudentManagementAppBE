@@ -1,12 +1,33 @@
-// internal/handlers/auth/login.go
+// internal/handlers/auth_handler.go
 package auth
 
 import (
 	"Group03-EX-StudentManagementAppBE/common"
+	"Group03-EX-StudentManagementAppBE/internal/handlers/base"
 	models "Group03-EX-StudentManagementAppBE/internal/models/auth"
+	"Group03-EX-StudentManagementAppBE/internal/services"
 
 	"github.com/gin-gonic/gin"
 )
+
+// Handler handles authentication routes
+type Handler struct {
+	base.Handler
+}
+
+// NewHandler creates a new auth handler
+func NewHandler(service *services.Service) *Handler {
+	return &Handler{
+		Handler: base.NewHandler(service),
+	}
+}
+
+func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
+	authRoutes := rg.Group("/users")
+	{
+		authRoutes.POST("/login", h.LogIn)
+	}
+}
 
 // LogIn handles user authentication
 func (h *Handler) LogIn(c *gin.Context) {
@@ -22,10 +43,9 @@ func (h *Handler) LogIn(c *gin.Context) {
 		return
 	}
 
-	// Trả về ID cùng với Token
 	c.JSON(common.SUCCESS_STATUS, gin.H{
 		"code":  loginResp.Code,
-		"id":    loginResp.ID,  
+		"id":    loginResp.ID,
 		"token": loginResp.Token,
 	})
 }

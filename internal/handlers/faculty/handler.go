@@ -2,26 +2,27 @@ package faculty
 
 import (
 	"Group03-EX-StudentManagementAppBE/common"
-	"Group03-EX-StudentManagementAppBE/internal/handlers"
+	"Group03-EX-StudentManagementAppBE/internal/handlers/base"
 	"Group03-EX-StudentManagementAppBE/internal/services"
+	"Group03-EX-StudentManagementAppBE/middleware"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
-	handlers.BaseHandler
+	base.Handler
 }
 
 func NewHandler(service *services.Service) *Handler {
 	return &Handler{
-		BaseHandler: handlers.NewBaseHandler(service),
+		Handler: base.NewHandler(service),
 	}
 }
 
 func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
-	facultyGroup := rg.Group("/v1/faculties")
+	facultyRoutes := rg.Group("/v1/faculties")
 	{
-		facultyGroup.GET("", h.GetList)
+		facultyRoutes.GET("", middleware.UserAuthentication, h.GetList)
 	}
 }
 

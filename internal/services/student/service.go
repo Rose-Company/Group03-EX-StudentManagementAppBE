@@ -11,12 +11,22 @@ import (
 	"gorm.io/gorm"
 )
 
+type Service interface {
+	// Define the methods that the service layer should implement
+	GetByID(ctx context.Context, id string) (*models.StudentResponse, error)
+	GetList(ctx context.Context, req *models.ListStudentRequest) (*models2.BaseListResponse, error)
+	CreateAStudent(ctx context.Context, req *models.Student) (*models.StudentResponse, error)
+	UpdateStudent(ctx context.Context, id string, req *models.Student) (*models.StudentResponse, error)
+	DeleteByID(ctx context.Context, id string) error
+	GetStatuses(ctx context.Context) ([]*models.StudentStatus, error)
+}
+
 type studentService struct {
 	studentRepo       student.Repository
 	studentStatusRepo student_status.Repository
 }
 
-func NewService(studentRepo student.Repository, studentStatusRepo student_status.Repository) Service {
+func NewStudentService(studentRepo student.Repository, studentStatusRepo student_status.Repository) Service {
 	return &studentService{
 		studentRepo:       studentRepo,
 		studentStatusRepo: studentStatusRepo,
