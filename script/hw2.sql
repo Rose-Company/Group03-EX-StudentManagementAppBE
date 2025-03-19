@@ -57,3 +57,19 @@ CREATE INDEX idx_activity_logs_user_id ON "PUBLIC".activity_logs(user_id);
 CREATE INDEX idx_activity_logs_resource ON "PUBLIC".activity_logs(resource);
 CREATE INDEX idx_activity_logs_action ON "PUBLIC".activity_logs(action);
 CREATE INDEX idx_activity_logs_created_at ON "PUBLIC".activity_logs(created_at);
+
+ALTER TABLE "PUBLIC"."users"
+ADD COLUMN program_id INTEGER;
+
+-- Create student_program table
+CREATE TABLE "PUBLIC"."student_programs" (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add foreign key constraint (optional, but recommended)
+ALTER TABLE "PUBLIC"."users"
+ADD CONSTRAINT fk_users_program_id
+FOREIGN KEY (program_id) REFERENCES "PUBLIC"."student_programs"(id);
