@@ -6,11 +6,15 @@ import (
 	"context"
 )
 
+type Service interface {
+	GetList(ctx context.Context) (*models.ListFacultyResponse, error)
+}
+
 type facultyService struct {
 	facultyRepo faculty.Repository
 }
 
-func NewService(facultyRepo faculty.Repository) Service {
+func NewFalcutyService(facultyRepo faculty.Repository) Service {
 	return &facultyService{
 		facultyRepo: facultyRepo,
 	}

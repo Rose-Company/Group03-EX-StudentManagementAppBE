@@ -1,4 +1,4 @@
-package faculty
+package models
 
 import (
 	"Group03-EX-StudentManagementAppBE/common"

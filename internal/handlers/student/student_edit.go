@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (h *Handler) CreateAStudent(c *gin.Context) {
+func (h *Handler) CreateStudent(c *gin.Context) {
 	ok, _ := common.ProfileFromJwt(c)
 	if !ok {
 		common.AbortWithError(c, common.ErrInvalidToken)
@@ -63,7 +63,7 @@ func (h *Handler) UpdateStudent(c *gin.Context) {
 	})
 }
 
-func (h *Handler) DeleteByID(c *gin.Context) {
+func (h *Handler) DeleteStudentByID(c *gin.Context) {
 	ok, _ := common.ProfileFromJwt(c)
 	if !ok {
 		common.AbortWithError(c, common.ErrInvalidToken)
