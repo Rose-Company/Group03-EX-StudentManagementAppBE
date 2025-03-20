@@ -47,14 +47,13 @@ func (h *Handler) CreateProgram(c *gin.Context) {
 		return
 	}
 
-	_, err := h.Service.Program.CreateProgram(c.Request.Context(), profile.Id, &program)
-	if err != nil {
+	if err := h.Service.Program.CreateProgram(c.Request.Context(), profile.Id, &program); err != nil {
 		common.AbortWithError(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, common.Response{
 		Code:    200,
-		Message: "Student created successfully",
+		Message: "Program created successfully",
 	})
 }
 
@@ -72,16 +71,14 @@ func (h *Handler) UpdateProgram(c *gin.Context) {
 		return
 	}
 
-	_, err := h.Service.Program.UpdateProgram(c, profile.Id, id, &program)
-	if err != nil {
+	if err := h.Service.Program.UpdateProgram(c, profile.Id, id, &program); err != nil {
 		common.AbortWithError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, common.Response{
 		Code:    200,
-		Message: "Student update successfully",
+		Message: "Program updated successfully",
 	})
-
 }
 
 func (h *Handler) DeleteProgram(c *gin.Context) {
