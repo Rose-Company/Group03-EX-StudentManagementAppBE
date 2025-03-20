@@ -80,3 +80,63 @@ func (h *Handler) DeleteStudentByID(c *gin.Context) {
 		Message: "Student deleted successfully",
 	})
 }
+
+func (h *Handler) ImportStudentsFromFile(c *gin.Context) {
+	ok, profile := common.ProfileFromJwt(c)
+	if !ok {
+		common.AbortWithError(c, common.ErrInvalidToken)
+		return
+	}
+
+	var req struct {
+		File string `json:"file" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.AbortWithError(c, err)
+		return
+	}
+
+	if req.File == "" {
+		common.AbortWithError(c, common.ErrLinkNotFound)
+		return
+	}
+
+	result, err := h.Service.Student.ImportStudentsFromFile(c.Request.Context(), profile.Id, req.File)
+	if err != nil {
+		common.AbortWithError(c, err)
+		return
+	}
+
+	if result.ErrorCount > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":       1,
+			"error_code": "import_partial_failure",
+			"message":    fmt.Sprintf("Import completed with %d successful and %d failed records", result.SuccessCount, result.ErrorCount),
+			"data": gin.H{
+				"successful_count": result.SuccessCount,
+				"failed_count":     result.ErrorCount,
+				"failed_records":   result.FailedRecords,
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Students imported successfully"})
+}
+
+func (h *Handler) ExportStudentsToFile(c *gin.Context) {
+	downloadURL, err := h.Service.Student.ExportStudentsToCSV(c.Request.Context())
+	if err != nil {
+		common.AbortWithError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Students exported successfully",
+		"data": gin.H{
+			"file_link": downloadURL,
+		},
+	})
+}

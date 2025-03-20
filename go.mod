@@ -1,10 +1,11 @@
 module Group03-EX-StudentManagementAppBE
 
-go 1.22.4
+go 1.23.0
 
 require gorm.io/gorm v1.25.12
 
 require (
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/bytedance/sonic v1.12.6 // indirect
 	github.com/bytedance/sonic/loader v0.2.1 // indirect
@@ -58,6 +59,7 @@ require (
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.9.1
+	golang.org/x/oauth2 v0.28.0
 	golang.org/x/text v0.21.0 // indirect
 	gorm.io/datatypes v1.2.3
 	gorm.io/driver/postgres v1.5.11

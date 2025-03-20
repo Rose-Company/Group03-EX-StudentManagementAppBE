@@ -3,6 +3,7 @@ package cmd
 import (
 	"Group03-EX-StudentManagementAppBE/config"
 	"Group03-EX-StudentManagementAppBE/internal/app"
+	"Group03-EX-StudentManagementAppBE/internal/repositories/admin"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/faculty"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/program"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
@@ -63,7 +64,7 @@ func runServer(port, mode string) {
 	repositories := initRepositories(db)
 
 	// Initialize services
-	service := initServices(repositories)
+	service := initServices(repositories, db)
 
 	// Initialize router
 	router := initRouter()
@@ -118,6 +119,7 @@ type repositoriesContainer struct {
 	studentStatusRepo   student_status.Repository
 	StudentAddressRepo  student_addresses.Repository
 	StudentDocumentRepo student_identity_documents.Repository
+	adminRepo           admin.Repository
 	programRepo         program.Repository
 }
 
@@ -129,11 +131,12 @@ func initRepositories(db *gorm.DB) *repositoriesContainer {
 		studentStatusRepo:   student_status.NewRepository(db),
 		StudentAddressRepo:  student_addresses.NewRepository(db),
 		StudentDocumentRepo: student_identity_documents.NewRepository(db),
+		adminRepo:           admin.NewRepository(db),
 		programRepo:         program.NewRepository(db),
 	}
 }
 
-func initServices(repos *repositoriesContainer) *services.Service {
+func initServices(repos *repositoriesContainer, db *gorm.DB) *services.Service {
 	return services.NewService(
 		repos.userRepo,
 		repos.studentRepo,
@@ -141,6 +144,8 @@ func initServices(repos *repositoriesContainer) *services.Service {
 		repos.studentStatusRepo,
 		repos.StudentAddressRepo,
 		repos.StudentDocumentRepo,
+		repos.adminRepo,
+		db,
 		repos.programRepo,
 	)
 }
