@@ -118,7 +118,7 @@ type repositoriesContainer struct {
 	studentStatusRepo   student_status.Repository
 	StudentAddressRepo  student_addresses.Repository
 	StudentDocumentRepo student_identity_documents.Repository
-  programRepo       program.Repository
+	programRepo         program.Repository
 }
 
 func initRepositories(db *gorm.DB) *repositoriesContainer {
@@ -129,7 +129,7 @@ func initRepositories(db *gorm.DB) *repositoriesContainer {
 		studentStatusRepo:   student_status.NewRepository(db),
 		StudentAddressRepo:  student_addresses.NewRepository(db),
 		StudentDocumentRepo: student_identity_documents.NewRepository(db),
-    programRepo:       program.NewRepository(db),
+		programRepo:         program.NewRepository(db),
 	}
 }
 
@@ -139,9 +139,9 @@ func initServices(repos *repositoriesContainer) *services.Service {
 		repos.studentRepo,
 		repos.facultyRepo,
 		repos.studentStatusRepo,
-		repos.programRepo,
 		repos.StudentAddressRepo,
 		repos.StudentDocumentRepo,
+		repos.programRepo,
 	)
 }
 
