@@ -24,7 +24,7 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 		studentGroup.GET("", middleware.UserAuthentication, h.GetStudentList)
 		studentGroup.DELETE("/:id", middleware.UserAuthentication, h.DeleteStudentByID)
 		studentGroup.POST("/create", middleware.UserAuthentication, h.CreateStudent)
-		studentGroup.PUT("/:id", middleware.UserAuthentication, h.UpdateStudent)
+		studentGroup.PATCH("/:id", middleware.UserAuthentication, h.UpdateStudent)
 		studentGroup.GET("/:id", middleware.UserAuthentication, h.GetStudentByID)
 		studentGroup.GET("/statuses", middleware.UserAuthentication, h.GetStudentStatuses)
 	}

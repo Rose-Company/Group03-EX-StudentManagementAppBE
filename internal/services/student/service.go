@@ -12,15 +12,17 @@ import (
 	"context"
 	"fmt"
 
+	log "github.com/sirupsen/logrus"
+
 	"gorm.io/gorm"
 )
 
 type Service interface {
 	GetStudentByID(ctx context.Context, id string) (*models.StudentResponse, error)
 	GetStudentList(ctx context.Context, req *models.ListStudentRequest) (*models2.BaseListResponse, error)
-	CreateAStudent(ctx context.Context, req *models.Student) (*models.StudentResponse, error)
-	UpdateStudent(ctx context.Context, id string, req *models.Student) (*models.StudentResponse, error)
-	DeleteStudentByID(ctx context.Context, id string) error
+	CreateAStudent(ctx context.Context, userID string, req *models.CreateStudentRequest) error
+	UpdateStudent(ctx context.Context, userID string, studentId string, req *models.UpdateStudentRequest) error
+	DeleteStudentByID(ctx context.Context, userID string, studentID string) error
 	GetStudentStatuses(ctx context.Context) ([]*models.StudentStatus, error)
 }
 
@@ -150,30 +152,230 @@ func (s *studentService) GetStudentList(ctx context.Context, req *models.ListStu
 	return response, nil
 }
 
-func (s *studentService) CreateAStudent(ctx context.Context, student *models.Student) (*models.StudentResponse, error) {
-	if student == nil {
-		return nil, common.ErrInvalidInput
+func (s *studentService) CreateAStudent(ctx context.Context, userID string, request *models.CreateStudentRequest) error {
+	logger := log.WithContext(ctx).WithFields(log.Fields{
+		"function":   "Create A Student",
+		"email":      request.Email,
+		"created_by": userID,
+	})
+
+	logger.Info("Creating new student")
+
+	if request == nil {
+		return common.ErrInvalidInput
 	}
-	createdStudent, err := s.studentRepo.Create(ctx, student)
+	studentModel := &models.Student{
+		StudentCode: *request.StudentCode,
+		Fullname:    *request.Fullname,
+		DateOfBirth: *request.DateOfBirth,
+		Gender:      *request.Gender,
+		FacultyID:   *request.FacultyID,
+		Batch:       *request.Batch,
+		Program:     *request.Program,
+		Address:     *request.Address,
+		Email:       *request.Email,
+		Phone:       *request.Phone,
+		StatusID:    *request.StatusID,
+		ProgramID:   *request.ProgramID,
+		Nationality: *request.Nationality,
+	}
+	createdStudent, err := s.studentRepo.Create(ctx, studentModel)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return createdStudent.ToResponse(), nil
+
+	if len(request.Addresses) > 0 {
+		for _, addr := range request.Addresses {
+			studentAddr := &models.StudentAddress{
+				StudentID:   createdStudent.ID,
+				AddressType: addr.AddressType,
+				Street:      addr.Street,
+				Ward:        addr.Ward,
+				District:    addr.District,
+				City:        addr.City,
+				Country:     addr.Country,
+			}
+			_, err := s.studentAddressRepo.Create(ctx, studentAddr)
+			if err != nil {
+				logger.Error("Failed to create student address", log.Fields{
+					"error":        err.Error(),
+					"student_id":   createdStudent.ID,
+					"address_type": addr.AddressType,
+					"created_by":   userID,
+				})
+				return err
+			}
+		}
+	}
+
+	if len(request.Documents) > 0 {
+		for _, doc := range request.Documents {
+			studentDoc := &models.StudentDocument{
+				StudentID:      createdStudent.ID,
+				DocumentType:   doc.DocumentType,
+				DocumentNumber: doc.DocumentNumber,
+				IssueDate:      doc.IssueDate,
+				IssuePlace:     doc.IssuePlace,
+				ExpiryDate:     doc.ExpiryDate,
+				CountryOfIssue: doc.CountryOfIssue,
+				HasChip:        doc.HasChip,
+				Notes:          doc.Notes,
+			}
+			_, err := s.studentDocumentRepo.Create(ctx, studentDoc)
+			if err != nil {
+				logger.Error("Failed to create student document", log.Fields{
+					"error":           err.Error(),
+					"student_id":      createdStudent.ID,
+					"document_type":   doc.DocumentType,
+					"document_number": doc.DocumentNumber,
+					"created_by":      userID,
+				})
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
-func (s *studentService) UpdateStudent(ctx context.Context, id string, student *models.Student) (*models.StudentResponse, error) {
-	if student == nil {
-		return nil, common.ErrInvalidInput
+func (s *studentService) UpdateStudent(ctx context.Context, userID string, studentID string, request *models.UpdateStudentRequest) error {
+	logger := log.WithContext(ctx).WithFields(log.Fields{
+		"function":   "Update Student",
+		"student_id": studentID,
+		"updated_by": userID,
+	})
+
+	logger.Info("Updating student")
+
+	if request == nil {
+		return common.ErrInvalidInput
 	}
-	updatedStudent, err := s.studentRepo.Update(ctx, id, student)
+	updatedStudent := &models.Student{}
+
+	// Apply updates to the student model
+	if request.StudentCode != nil {
+		updatedStudent.StudentCode = *request.StudentCode
+	}
+	if request.Fullname != nil {
+		updatedStudent.Fullname = *request.Fullname
+	}
+	if request.DateOfBirth != nil {
+		updatedStudent.DateOfBirth = *request.DateOfBirth
+	}
+	if request.Gender != nil {
+		updatedStudent.Gender = *request.Gender
+	}
+	if request.FacultyID != nil {
+		updatedStudent.FacultyID = *request.FacultyID
+	}
+	if request.Batch != nil {
+		updatedStudent.Batch = *request.Batch
+	}
+	if request.Program != nil {
+		updatedStudent.Program = *request.Program
+	}
+	if request.Address != nil {
+		updatedStudent.Address = *request.Address
+	}
+	if request.Email != nil {
+		updatedStudent.Email = *request.Email
+	}
+	if request.Phone != nil {
+		updatedStudent.Phone = *request.Phone
+	}
+	if request.StatusID != nil {
+		updatedStudent.StatusID = *request.StatusID
+	}
+	if request.ProgramID != nil {
+		updatedStudent.ProgramID = *request.ProgramID
+	}
+	if request.Nationality != nil {
+		updatedStudent.Nationality = *request.Nationality
+	}
+
+	updatedStudent, err := s.studentRepo.Update(ctx, studentID, updatedStudent)
 	if err != nil {
-		return nil, err
+		logger.Error("Failed to update student", log.Fields{
+			"error":      err.Error(),
+			"updated_by": userID,
+		})
+		return err
 	}
-	return updatedStudent.ToResponse(), nil
+
+	if request.Addresses != nil {
+		for _, addr := range request.Addresses {
+			studentAddr := &models.StudentAddress{
+				StudentID:   updatedStudent.ID,
+				AddressType: addr.AddressType,
+				Street:      addr.Street,
+				Ward:        addr.Ward,
+				District:    addr.District,
+				City:        addr.City,
+				Country:     addr.Country,
+			}
+			err = s.studentAddressRepo.UpdatesByConditions(ctx, studentAddr, func(tx *gorm.DB) {
+				tx.Where("student_id = ?", updatedStudent.ID)
+			})
+			if err != nil {
+				logger.Error("Failed to update student address ", log.Fields{
+					"error":      err.Error(),
+					"updated_by": userID,
+				})
+				return err
+			}
+		}
+	}
+
+	// Handle documents if provided
+	if request.Documents != nil {
+		// Create new documents
+		for _, doc := range request.Documents {
+			studentDoc := &models.StudentDocument{
+				StudentID:      updatedStudent.ID,
+				DocumentType:   doc.DocumentType,
+				DocumentNumber: doc.DocumentNumber,
+				IssueDate:      doc.IssueDate,
+				IssuePlace:     doc.IssuePlace,
+				ExpiryDate:     doc.ExpiryDate,
+				CountryOfIssue: doc.CountryOfIssue,
+				HasChip:        doc.HasChip,
+				Notes:          doc.Notes,
+			}
+			err = s.studentDocumentRepo.UpdatesByConditions(ctx, studentDoc, func(tx *gorm.DB) {
+				tx.Where("student_id = ?", updatedStudent.ID)
+			})
+			if err != nil {
+				logger.Error("Failed to update student document ", log.Fields{
+					"error":      err.Error(),
+					"updated_by": userID,
+				})
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
-func (s *studentService) DeleteStudentByID(ctx context.Context, id string) error {
-	return s.studentRepo.DeleteByID(ctx, id)
+func (s *studentService) DeleteStudentByID(ctx context.Context, userID string, studentID string) error {
+	logger := log.WithContext(ctx).WithFields(log.Fields{
+		"function":   "DeleteStudentByID",
+		"student_id": studentID,
+		"deleted_by": userID,
+	})
+
+	logger.Info("Deleting student")
+
+	err := s.studentRepo.DeleteByID(ctx, studentID)
+	if err != nil {
+		logger.Error("Failed to delete student", log.Fields{
+			"error": err.Error(),
+		})
+		return err
+	}
+
+	logger.Info("Student deleted successfully")
+	return nil
 }
 
 func (s *studentService) GetStudentStatuses(ctx context.Context) ([]*models.StudentStatus, error) {

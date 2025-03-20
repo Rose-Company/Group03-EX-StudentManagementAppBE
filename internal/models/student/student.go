@@ -25,6 +25,8 @@ type Student struct {
 	Documents   []*StudentDocument `json:"documents,omitempty" gorm:"foreignKey:StudentID;references:ID"`
 	CreatedAt   time.Time          `json:"created_at" gorm:"type:timestamptz;default:CURRENT_TIMESTAMP"`
 	UpdatedAt   time.Time          `json:"updated_at" gorm:"type:timestamptz;default:CURRENT_TIMESTAMP"`
+	ProgramID   int                `json:"program_id" gorm:"type:integer;references:programs(id)"`
+	Nationality string             `json:"nationality" gorm:"type:text"`
 }
 
 func (s *Student) TableName() string {
@@ -99,6 +101,7 @@ type StudentResponse struct {
 	IDDocuments      []IDDocumentResponse `json:"id_documents,omitempty"`
 	CreatedAt        time.Time            `json:"created_at"`
 	UpdatedAt        time.Time            `json:"updated_at"`
+	ProgramID        int                  `json:"program_id,omitempty"`
 }
 
 // Simplified address response for the StudentResponse
@@ -185,6 +188,8 @@ func (s *Student) ToResponse() *StudentResponse {
 		StatusID:    s.StatusID,
 		CreatedAt:   s.CreatedAt,
 		UpdatedAt:   s.UpdatedAt,
+		ProgramID:   s.ProgramID,
+		Nationality: s.Nationality,
 	}
 
 	// Process addresses by type if present
@@ -271,3 +276,53 @@ func (d *StudentDocument) ToResponse() *StudentDocumentResponse {
 		UpdatedAt:      d.UpdatedAt,
 	}
 }
+
+// StudentRequest represents the shared fields between create and update operations
+type StudentRequest struct {
+	StudentCode *int               `json:"student_code"`
+	Fullname    *string            `json:"fullname"`
+	DateOfBirth *time.Time         `json:"date_of_birth"`
+	Gender      *string            `json:"gender"`
+	FacultyID   *int               `json:"faculty_id"`
+	Batch       *string            `json:"batch"`
+	Program     *string            `json:"program"`
+	Address     *string            `json:"address"`
+	Email       *string            `json:"email"`
+	Phone       *string            `json:"phone"`
+	StatusID    *int               `json:"status_id"`
+	ProgramID   *int               `json:"program_id"`
+	Nationality *string            `json:"nationality"`
+	Addresses   []*AddressRequest  `json:"addresses"`
+	Documents   []*DocumentRequest `json:"documents"`
+}
+
+// AddressRequest represents address fields for API operations
+type AddressRequest struct {
+	ID          uuid.UUID `json:"id,omitempty"`
+	AddressType string    `json:"address_type" binding:"required,oneof=Permanent Temporary Mailing"`
+	Street      string    `json:"street" binding:"required"`
+	Ward        string    `json:"ward"`
+	District    string    `json:"district"`
+	City        string    `json:"city" binding:"required"`
+	Country     string    `json:"country" binding:"required"`
+}
+
+// DocumentRequest represents document fields for API operations
+type DocumentRequest struct {
+	ID             uuid.UUID `json:"id,omitempty"`
+	DocumentType   string    `json:"document_type" binding:"required"`
+	DocumentNumber string    `json:"document_number" binding:"required"`
+	IssueDate      time.Time `json:"issue_date"`
+	IssuePlace     string    `json:"issue_place"`
+	ExpiryDate     time.Time `json:"expiry_date"`
+	CountryOfIssue string    `json:"country_of_issue"`
+	HasChip        bool      `json:"has_chip"`
+	Notes          *string   `json:"notes"`
+}
+
+// CreateStudentRequest for student creation API - same as StudentRequest
+type CreateStudentRequest StudentRequest
+
+// UpdateStudentRequest for student update API - same as StudentRequest
+// But when handling in the service, only update fields that are provided
+type UpdateStudentRequest StudentRequest
