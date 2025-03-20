@@ -30,6 +30,8 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 		studentGroup.POST("/statuses", middleware.UserAuthentication, h.CreateStudentStatus)
 		studentGroup.PATCH("/statuses/:id", middleware.UserAuthentication, h.UpdateStudentStatus)
 		studentGroup.DELETE("/statuses/:id", middleware.UserAuthentication, h.DeleteStudentStatus)
+		studentGroup.POST("/import-from-file", middleware.UserAuthentication, h.ImportStudentsFromFile)
+		studentGroup.GET("/exported-files", middleware.UserAuthentication, h.ExportStudentsToFile)
 	}
 
 	

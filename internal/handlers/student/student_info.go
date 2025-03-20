@@ -28,7 +28,8 @@ func (h *Handler) GetStudentByID(c *gin.Context) {
 		return
 	}
 
-	student, err := h.Service.Student.GetByID(c, idStr)
+	// Get student details from service
+	student, err := h.Service.Student.GetStudentByID(c, idStr)
 	if err != nil {
 		log.Printf("Error fetching student with ID %s: %v", idStr, err)
 		common.AbortWithError(c, err)

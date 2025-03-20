@@ -9,11 +9,17 @@ import (
 )
 
 var (
-	ErrUserNotFound = errors.New("user not found")
-	ErrRoleNotFound = errors.New("role not found")
-	ErrInvalidToken = errors.New("invalid token")
-	ErrInvalidInput = errors.New("invalid input")
+	ErrUserNotFound           = errors.New("user not found")
+	ErrRoleNotFound           = errors.New("role not found")
+	ErrInvalidToken           = errors.New("invalid token")
+	ErrInvalidInput           = errors.New("invalid input")
 	ErrInvalidEmailOrPassWord = errors.New("invalid email or password")
+	ErrInvalidFormat          = errors.New("invalid format")
+	ErrInvalidFile            = errors.New("invalid file")
+	ErrInvalidFileFormat      = errors.New("invalid file format")
+	ErrInvalidFileSize        = errors.New("invalid file size")
+	ErrFileTooLarge           = errors.New("file too large")
+	ErrLinkNotFound           = errors.New("link not found")
 )
 
 var listErrorData = []errData{

@@ -35,7 +35,6 @@ func UserAuthentication(c *gin.Context) {
 		return
 	}
 	arr := strings.Split(authorization, "Bearer ")
-	fmt.Println(arr)
 	if len(arr) < 2 {
 		c.AbortWithStatusJSON(common.UNAUTHORIZED_STATUS, gin.H{"error": "Token is required"})
 		return

@@ -3,8 +3,12 @@ package cmd
 import (
 	"Group03-EX-StudentManagementAppBE/config"
 	"Group03-EX-StudentManagementAppBE/internal/app"
+	"Group03-EX-StudentManagementAppBE/internal/repositories/admin"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/faculty"
+	"Group03-EX-StudentManagementAppBE/internal/repositories/program"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
+	student_addresses "Group03-EX-StudentManagementAppBE/internal/repositories/student_addresses"
+	student_identity_documents "Group03-EX-StudentManagementAppBE/internal/repositories/student_documents"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student_status"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/user"
 	"Group03-EX-StudentManagementAppBE/internal/services"
@@ -21,6 +25,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// C:\Users\Admin\Desktop\project\Group03-EX-StudentManagementAppBE\internal\repositories\student_addresses.go
 var serverCmd = &cobra.Command{
 	Use:   "server",
 	Short: "Start the API server",
@@ -59,7 +64,7 @@ func runServer(port, mode string) {
 	repositories := initRepositories(db)
 
 	// Initialize services
-	service := initServices(repositories)
+	service := initServices(repositories, db)
 
 	// Initialize router
 	router := initRouter()
@@ -108,27 +113,40 @@ func initDatabase(cfg *config.Config) *gorm.DB {
 }
 
 type repositoriesContainer struct {
-	userRepo          user.Repository
-	studentRepo       student.Repository
-	facultyRepo       faculty.Repository
-	studentStatusRepo student_status.Repository
+	userRepo            user.Repository
+	studentRepo         student.Repository
+	facultyRepo         faculty.Repository
+	studentStatusRepo   student_status.Repository
+	StudentAddressRepo  student_addresses.Repository
+	StudentDocumentRepo student_identity_documents.Repository
+	adminRepo           admin.Repository
+	programRepo         program.Repository
 }
 
 func initRepositories(db *gorm.DB) *repositoriesContainer {
 	return &repositoriesContainer{
-		userRepo:          user.NewRepository(db),
-		studentRepo:       student.NewRepository(db),
-		facultyRepo:       faculty.NewRepository(db),
-		studentStatusRepo: student_status.NewRepository(db),
+		userRepo:            user.NewRepository(db),
+		studentRepo:         student.NewRepository(db),
+		facultyRepo:         faculty.NewRepository(db),
+		studentStatusRepo:   student_status.NewRepository(db),
+		StudentAddressRepo:  student_addresses.NewRepository(db),
+		StudentDocumentRepo: student_identity_documents.NewRepository(db),
+		adminRepo:           admin.NewRepository(db),
+		programRepo:         program.NewRepository(db),
 	}
 }
 
-func initServices(repos *repositoriesContainer) *services.Service {
+func initServices(repos *repositoriesContainer, db *gorm.DB) *services.Service {
 	return services.NewService(
 		repos.userRepo,
 		repos.studentRepo,
 		repos.facultyRepo,
 		repos.studentStatusRepo,
+		repos.StudentAddressRepo,
+		repos.StudentDocumentRepo,
+		repos.adminRepo,
+		db,
+		repos.programRepo,
 	)
 }
 

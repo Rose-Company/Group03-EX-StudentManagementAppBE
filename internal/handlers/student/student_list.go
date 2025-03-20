@@ -23,10 +23,25 @@ func (h *Handler) GetStudentList(c *gin.Context) {
 	if err := c.ShouldBindQuery(&req); err != nil {
 		log.Printf("Error binding query params in GetStudentList: %v", err)
 		common.AbortWithError(c, common.ErrInvalidInput)
+	}
+
+	// Get student list from service
+	students, err := h.Service.Student.GetStudentList(c, &req)
+	if err != nil {
+		common.AbortWithError(c, err)
 		return
 	}
 
-	students, err := h.Service.Student.GetList(c, &req)
+}
+
+func (h *Handler) GetStudentStatuses(c *gin.Context) {
+	ok, _ := common.ProfileFromJwt(c)
+	if !ok {
+		common.AbortWithError(c, common.ErrInvalidToken)
+		return
+	}
+
+	studentStatuses, err := h.Service.Student.GetStudentStatuses(c)
 	if err != nil {
 		log.Printf("Error fetching student list: %v", err)
 		common.AbortWithError(c, err)
