@@ -9,6 +9,9 @@ import (
 
 type Service interface {
 	ListPrograms(ctx context.Context, req *models_program.ListProgramRequest) ([]*models_program.Program, error)
+	CreateProgram(ctx context.Context, program *models_program.Program) (*models_program.Program, error)
+	UpdateProgram(ctx context.Context, id string, program *models_program.Program) (*models_program.Program, error)
+	DeleteProgram(ctx context.Context, id string) error
 }
 
 type service struct {
@@ -33,4 +36,25 @@ func (s *service) ListPrograms(ctx context.Context, req *models_program.ListProg
 		},
 	}
 	return s.programRepo.List(ctx, params)
+}
+
+func (s *service) CreateProgram(ctx context.Context, program *models_program.Program) (*models_program.Program, error) {
+	createdProgram, err := s.programRepo.Create(ctx, program)
+	if err != nil {
+		return nil, err
+	}
+	return createdProgram, nil
+
+}
+
+func (s *service) UpdateProgram(ctx context.Context, id string, program *models_program.Program) (*models_program.Program, error) {
+	updatedProgram, err := s.programRepo.Update(ctx, id, program)
+	if err != nil {
+		return nil, err
+	}
+	return updatedProgram, nil
+}
+
+func (s *service) DeleteProgram(ctx context.Context, id string) error {
+	return s.programRepo.DeleteByID(ctx, id)
 }

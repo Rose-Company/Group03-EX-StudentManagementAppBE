@@ -2,30 +2,15 @@ package program
 
 import (
 	"Group03-EX-StudentManagementAppBE/common"
-	"Group03-EX-StudentManagementAppBE/internal/handlers/base"
+
 	models "Group03-EX-StudentManagementAppBE/internal/models/program"
-	"Group03-EX-StudentManagementAppBE/internal/services"
-	"Group03-EX-StudentManagementAppBE/middleware"
+
+	"log"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-type Handler struct {
-	base.Handler
-}
-
-func NewHandler(service *services.Service) Handler {
-	return Handler{
-		Handler: base.NewHandler(service),
-	}
-}
-
-func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
-	programGroup := router.Group("/v1/students")
-	programGroup.GET("/programs", middleware.UserAuthentication, h.ListPrograms)
-}
-
-// bổ sung
 func (h *Handler) ListPrograms(c *gin.Context) {
 	ok, _ := common.ProfileFromJwt(c)
 	if !ok {
@@ -40,9 +25,78 @@ func (h *Handler) ListPrograms(c *gin.Context) {
 
 	programs, err := h.Service.Program.ListPrograms(c, &req)
 	if err != nil {
-		common.AbortWithError(c, err)
+		c.JSON(http.StatusInternalServerError, common.ResponseCustom(common.REQUEST_FAILED, nil, err.Error()))
 		return
 	}
 
-	c.JSON(common.SUCCESS_STATUS, programs)
+	c.JSON(http.StatusOK, common.ResponseCustom(common.REQUEST_SUCCESS, programs, "Success"))
+}
+
+func (h *Handler) CreateProgram(c *gin.Context) {
+	ok, profile := common.ProfileFromJwt(c)
+	if !ok || profile == nil {
+		c.JSON(http.StatusUnauthorized, common.ResponseCustom(common.REQUEST_FAILED, nil, "Unauthorized"))
+		return
+	}
+
+	var program models.Program
+	if err := c.ShouldBindJSON(&program); err != nil {
+		log.Printf("Error binding create program request: %v", err)
+		c.JSON(http.StatusBadRequest, common.ResponseCustom(common.REQUEST_FAILED, nil, err.Error()))
+		return
+	}
+
+	createdProgram, err := h.Service.Program.CreateProgram(c, &program)
+	if err != nil {
+		log.Printf("Error creating program: %v", err)
+		c.JSON(http.StatusInternalServerError, common.ResponseCustom(common.REQUEST_FAILED, nil, err.Error()))
+		return
+	}
+
+	log.Printf("Program created successfully with ID: %d", createdProgram.ID)
+	c.JSON(http.StatusCreated, common.ResponseCustom(common.REQUEST_SUCCESS, createdProgram, "Program created successfully"))
+}
+
+func (h *Handler) UpdateProgram(c *gin.Context) {
+	ok, profile := common.ProfileFromJwt(c)
+	if !ok || profile == nil {
+		c.JSON(http.StatusUnauthorized, common.ResponseCustom(common.REQUEST_FAILED, nil, "Unauthorized"))
+		return
+	}
+
+	id := c.Param("id")
+	var program models.Program
+	if err := c.ShouldBindJSON(&program); err != nil {
+		log.Printf("Error binding update program request: %v", err)
+		c.JSON(http.StatusBadRequest, common.ResponseCustom(common.REQUEST_FAILED, nil, err.Error()))
+		return
+	}
+
+	updatedProgram, err := h.Service.Program.UpdateProgram(c, id, &program)
+	if err != nil {
+		log.Printf("Error updating program: %v", err)
+		c.JSON(http.StatusInternalServerError, common.ResponseCustom(common.REQUEST_FAILED, nil, err.Error()))
+		return
+	}
+
+	log.Printf("Program updated successfully with ID: %s", id)
+	c.JSON(http.StatusOK, common.ResponseCustom(common.REQUEST_SUCCESS, updatedProgram, "Program updated successfully"))
+}
+
+func (h *Handler) DeleteProgram(c *gin.Context) {
+	ok, profile := common.ProfileFromJwt(c)
+	if !ok || profile == nil {
+		c.JSON(http.StatusUnauthorized, common.ResponseCustom(common.REQUEST_FAILED, nil, "Unauthorized"))
+		return
+	}
+
+	id := c.Param("id")
+	if err := h.Service.Program.DeleteProgram(c, id); err != nil {
+		log.Printf("Error deleting program: %v", err)
+		c.JSON(http.StatusInternalServerError, common.ResponseCustom(common.REQUEST_FAILED, nil, err.Error()))
+		return
+	}
+
+	log.Printf("Program deleted successfully with ID: %s", id)
+	c.JSON(http.StatusOK, common.ResponseCustom(common.REQUEST_SUCCESS, nil, "Program deleted successfully"))
 }
