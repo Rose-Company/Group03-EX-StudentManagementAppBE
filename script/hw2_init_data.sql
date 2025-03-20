@@ -274,3 +274,52 @@ UPDATE "PUBLIC".students SET nationality = 'Korean' WHERE id IN (
     '70fba6fa-a3d9-480e-9443-457d8f7fa607', -- Daniel Park
     'b0791121-bb5d-4d3b-9d77-a236b0503193'  -- Hannah Kim
 );
+
+-- Initialize student_programs table with different training programs
+INSERT INTO "PUBLIC"."student_programs" (name) VALUES 
+('Formal Training'),
+('High-Quality Training'),
+('Gifted Training'),
+('International Standard Training'),
+('Special Training'),
+('Distance Learning Program'),
+('Evening Program'),
+('Joint Training Program'),
+('Standard Training'),
+('Advanced Training');
+
+-- Update existing students with program_id based on their current program field
+-- Map 'Bachelor of Law' to 'Formal Training'
+UPDATE "PUBLIC"."students" 
+SET program_id = (SELECT id FROM "PUBLIC"."student_programs" WHERE name = 'Formal Training')
+WHERE program = 'Bachelor of Law';
+
+-- Map 'Bachelor of Business English' to 'High-Quality Training'
+UPDATE "PUBLIC"."students" 
+SET program_id = (SELECT id FROM "PUBLIC"."student_programs" WHERE name = 'High-Quality Training')
+WHERE program = 'Bachelor of Business English';
+
+-- Map 'Bachelor of Japanese Studies' to 'International Standard Training'
+UPDATE "PUBLIC"."students" 
+SET program_id = (SELECT id FROM "PUBLIC"."student_programs" WHERE name = 'International Standard Training')
+WHERE program = 'Bachelor of Japanese Studies';
+
+-- Map 'Bachelor of French Studies' to 'Gifted Training'
+UPDATE "PUBLIC"."students" 
+SET program_id = (SELECT id FROM "PUBLIC"."student_programs" WHERE name = 'Gifted Training')
+WHERE program = 'Bachelor of French Studies';
+
+-- Map any other programs to 'Standard Training'
+UPDATE "PUBLIC"."students" 
+SET program_id = (SELECT id FROM "PUBLIC"."student_programs" WHERE name = 'Standard Training')
+WHERE program_id IS NULL;
+
+-- Create an index on program_id for better query performance
+CREATE INDEX IF NOT EXISTS idx_students_program_id ON "PUBLIC"."students"(program_id);
+
+-- Verify data was inserted correctly
+SELECT sp.name as program_name, COUNT(s.id) as student_count
+FROM "PUBLIC"."student_programs" sp
+LEFT JOIN "PUBLIC"."students" s ON sp.id = s.program_id
+GROUP BY sp.name
+ORDER BY sp.name;
