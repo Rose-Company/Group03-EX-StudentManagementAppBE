@@ -2,6 +2,7 @@ package admin
 
 import (
 	"Group03-EX-StudentManagementAppBE/common"
+	"mime/multipart"
 	"time"
 
 	"github.com/google/uuid"
@@ -80,4 +81,24 @@ type FailedRecordDetail struct {
 	StudentCode string `json:"student_code,omitempty"`
 	Email       string `json:"email,omitempty"`
 	Error       string `json:"error"`
+}
+
+type FileHeaderWrapper struct {
+	Header *multipart.FileHeader
+	File   multipart.File
+}
+
+// Open implements the Open method required by multipart.FileHeader
+func (f *FileHeaderWrapper) Open() (multipart.File, error) {
+	return f.File, nil
+}
+
+// Filename returns the filename
+func (f *FileHeaderWrapper) Filename() string {
+	return f.Header.Filename
+}
+
+// Size returns the file size
+func (f *FileHeaderWrapper) Size() int64 {
+	return f.Header.Size
 }

@@ -124,3 +124,19 @@ func (h *Handler) ImportStudentsFromFile(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Students imported successfully"})
 }
+
+func (h *Handler) ExportStudentsToFile(c *gin.Context) {
+	downloadURL, err := h.Service.Student.ExportStudentsToCSV(c.Request.Context())
+	if err != nil {
+		common.AbortWithError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Students exported successfully",
+		"data": gin.H{
+			"file_link": downloadURL,
+		},
+	})
+}

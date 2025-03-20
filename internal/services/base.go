@@ -29,6 +29,7 @@ type Service struct {
 }
 
 // NewService creates a new service container with all dependencies
+// NewService creates a new service container with all dependencies
 func NewService(
 	userRepo user.Repository,
 	studentRepo student.Repository,
@@ -45,17 +46,17 @@ func NewService(
 		panic(err)
 	}
 
-	// Initialize service container
+	// Initialize service container with placeholder for Student service
 	service := &Service{
 		Auth:    auth.NewAuthService(userRepo, cfg.JWTSecret),
-		Student: studentService.NewStudentService(studentRepo, studentStatusRepo, studentAddressRepo, studentDocumentRepo),
 		Faculty: facultyService.NewFalcutyService(facultyRepo),
 	}
 
 	// Initialize Google Drive service if credentials are configured
+	var driveSvc gdriveService.Service
 	if cfg.GoogleDriveCredentialsFile != "" {
-		// Use HTTP-based Google Drive service
-		driveSvc, err := gdriveService.NewHTTPDriveService(cfg.GoogleDriveCredentialsFile)
+		var err error
+		driveSvc, err = gdriveService.NewHTTPDriveService(cfg.GoogleDriveCredentialsFile)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"error": err.Error(),
@@ -70,6 +71,15 @@ func NewService(
 	} else {
 		log.Warn("Google Drive credentials not configured. Drive integration will be disabled.")
 	}
+
+	// Now initialize Student service with the drive service
+	service.Student = studentService.NewStudentService(
+		studentRepo,
+		studentStatusRepo,
+		studentAddressRepo,
+		studentDocumentRepo,
+		driveSvc, // Pass the drive service here
+	)
 
 	return service
 }

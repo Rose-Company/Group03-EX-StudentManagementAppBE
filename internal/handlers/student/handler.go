@@ -28,5 +28,6 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 		studentGroup.GET("/:id", middleware.UserAuthentication, h.GetStudentByID)
 		studentGroup.GET("/statuses", middleware.UserAuthentication, h.GetStudentStatuses)
 		studentGroup.POST("/import-from-file", middleware.UserAuthentication, h.ImportStudentsFromFile)
+		studentGroup.GET("/exported-files", middleware.UserAuthentication, h.ExportStudentsToFile)
 	}
 }

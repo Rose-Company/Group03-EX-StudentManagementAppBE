@@ -10,12 +10,14 @@ import (
 	student_addresses "Group03-EX-StudentManagementAppBE/internal/repositories/student_addresses"
 	student_identity_documents "Group03-EX-StudentManagementAppBE/internal/repositories/student_documents"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student_status"
+	"Group03-EX-StudentManagementAppBE/internal/services/gdrive"
 	"bytes"
 	"context"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"sort"
 	"strconv"
@@ -37,6 +39,7 @@ type Service interface {
 	DeleteStudentByID(ctx context.Context, userID string, studentID string) error
 	GetStudentStatuses(ctx context.Context) ([]*models.StudentStatus, error)
 	ImportStudentsFromFile(ctx context.Context, userID string, fileURL string) (*admin_models.ImportResult, error)
+	ExportStudentsToCSV(ctx context.Context) (string, error)
 }
 
 type studentService struct {
@@ -44,18 +47,21 @@ type studentService struct {
 	studentStatusRepo   student_status.Repository
 	studentAddressRepo  student_addresses.Repository
 	studentDocumentRepo student_identity_documents.Repository
+	driveService        gdrive.Service
 }
 
 func NewStudentService(
 	studentRepo student.Repository,
 	studentStatusRepo student_status.Repository,
 	studentAddressRepo student_addresses.Repository,
-	studentDocumentRepo student_identity_documents.Repository) Service {
+	studentDocumentRepo student_identity_documents.Repository,
+	driveService gdrive.Service) Service {
 	return &studentService{
 		studentRepo:         studentRepo,
 		studentStatusRepo:   studentStatusRepo,
 		studentAddressRepo:  studentAddressRepo,
 		studentDocumentRepo: studentDocumentRepo,
+		driveService:        driveService,
 	}
 }
 
@@ -1477,4 +1483,183 @@ func (s *studentService) createStudentRequestFromJSON(data map[string]interface{
 	}
 
 	return req, nil
+}
+
+// customMultipartFile implements multipart.File using a bytes.Reader
+type customMultipartFile struct {
+	reader *bytes.Reader
+	size   int64
+}
+
+func (f *customMultipartFile) Read(p []byte) (n int, err error) {
+	return f.reader.Read(p)
+}
+
+func (f *customMultipartFile) ReadAt(p []byte, off int64) (n int, err error) {
+	return f.reader.ReadAt(p, off)
+}
+
+func (f *customMultipartFile) Seek(offset int64, whence int) (int64, error) {
+	return f.reader.Seek(offset, whence)
+}
+
+func (f *customMultipartFile) Close() error {
+	// Nothing to close for a bytes.Reader
+	return nil
+}
+
+// customFileHeader extends multipart.FileHeader with a custom Open method
+type customFileHeader struct {
+	*multipart.FileHeader
+	openFunc func() (multipart.File, error)
+}
+
+// Open implements the Open method for the custom file header
+func (cfh *customFileHeader) Open() (multipart.File, error) {
+	return cfh.openFunc()
+}
+
+func (s *studentService) ExportStudentsToCSV(ctx context.Context) (string, error) {
+	logger := log.WithContext(ctx).WithFields(log.Fields{
+		"function": "ExportStudentsToCSV",
+	})
+	logger.Info("Starting student export to CSV")
+
+	// Get all students from the database with associated faculty names
+	students, err := s.studentRepo.List(ctx, models2.QueryParams{
+		Limit: -1, // Get all students
+	}, func(tx *gorm.DB) {
+		tx.Joins(`LEFT JOIN "PUBLIC"."faculties" ON students.faculty_id = "PUBLIC"."faculties".id`)
+		tx.Select(`students.*, "PUBLIC"."faculties".name as faculty_name`)
+		tx.Preload("Addresses") // Preload addresses
+	})
+
+	if err != nil {
+		logger.WithError(err).Error("Failed to retrieve students from database")
+		return "", fmt.Errorf("failed to retrieve students: %w", err)
+	}
+
+	// Create a buffer to hold the CSV data in memory
+	var csvBuffer bytes.Buffer
+	writer := csv.NewWriter(&csvBuffer)
+
+	// Write the header row
+	header := []string{
+		"Student Code", "Full Name", "Email", "Date of Birth", "Gender",
+		"Faculty ID", "Faculty Name", "Batch", "Program", "Address", "Phone", "Status",
+		"Nationality", "Permanent Address", "Temporary Address",
+	}
+	if err := writer.Write(header); err != nil {
+		logger.WithError(err).Error("Failed to write CSV header")
+		return "", fmt.Errorf("failed to write CSV header: %w", err)
+	}
+
+	// Loop through students and write each as a row
+	for _, student := range students {
+		permanentAddress := ""
+		temporaryAddress := ""
+
+		// Get addresses if available
+		if student.Addresses != nil {
+			for _, addr := range student.Addresses {
+				addrStr := fmt.Sprintf("%s, %s, %s, %s, %s",
+					addr.Street, addr.Ward, addr.District, addr.City, addr.Country)
+
+				if addr.AddressType == "Permanent" {
+					permanentAddress = addrStr
+				} else if addr.AddressType == "Temporary" {
+					temporaryAddress = addrStr
+				}
+			}
+		}
+
+		// Get faculty ID and name
+		facultyID := 0
+		if student.FacultyID != 0 {
+			facultyID = student.FacultyID
+		}
+
+		// Get status name
+		statusName := "Active" // Default
+		if student.StatusID != 1 {
+			// Optionally, get the actual status name from the database
+			status, err := s.studentStatusRepo.GetByID(ctx, fmt.Sprintf("%d", student.StatusID))
+			if err == nil && status != nil {
+				statusName = status.Name
+			}
+		}
+
+		// Format the date of birth
+		dob := ""
+		if !student.DateOfBirth.IsZero() {
+			dob = student.DateOfBirth.Format("2006-01-02")
+		}
+
+		// Write the student data row
+		row := []string{
+			fmt.Sprintf("%d", student.StudentCode),
+			student.Fullname,
+			student.Email,
+			dob,
+			student.Gender,
+			fmt.Sprintf("%d", facultyID),
+			student.Batch,
+			student.Program,
+			student.Address,
+			student.Phone,
+			statusName,
+			student.Nationality,
+			permanentAddress,
+			temporaryAddress,
+		}
+
+		if err := writer.Write(row); err != nil {
+			logger.WithError(err).Error("Failed to write student row to CSV")
+			continue // Skip this student and continue with others
+		}
+	}
+
+	// Flush data to ensure it's written to the buffer
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		logger.WithError(err).Error("Error flushing CSV data")
+		return "", fmt.Errorf("error flushing CSV data: %w", err)
+	}
+
+	// Get the CSV data as bytes
+	csvData := csvBuffer.Bytes()
+	logger.WithField("csvSize", len(csvData)).Info("Generated CSV data in memory")
+
+	// Create a custom implementation of multipart.File using a bytes.Reader
+	csvFile := &customMultipartFile{
+		reader: bytes.NewReader(csvData),
+		size:   int64(len(csvData)),
+	}
+
+	// Create a multipart file header
+	fileHeader := &multipart.FileHeader{
+		Filename: "students-export.csv",
+		Size:     int64(len(csvData)),
+	}
+
+	// Create the custom file header with our overridden Open method
+	myHeader := &customFileHeader{
+		FileHeader: fileHeader,
+		openFunc: func() (multipart.File, error) {
+			return csvFile, nil
+		},
+	}
+
+	// Upload the file to Google Drive using the gdrive service
+	driveFileInfo, err := s.driveService.UploadFile(ctx, myHeader.FileHeader, "students-export.csv")
+	if err != nil {
+		logger.WithError(err).Error("Failed to upload CSV to Google Drive")
+		return "", fmt.Errorf("failed to upload to Google Drive: %w", err)
+	}
+
+	// Get the download URL from the drive file info
+	downloadURL := driveFileInfo.DownloadURL
+	logger.WithField("downloadURL", downloadURL).Info("Successfully exported students to CSV")
+
+	return downloadURL, nil
 }
