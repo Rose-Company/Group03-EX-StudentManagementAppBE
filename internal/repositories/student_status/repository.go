@@ -1,7 +1,7 @@
 package student_status
 
 import (
-	models "Group03-EX-StudentManagementAppBE/internal/models/student"
+	models "Group03-EX-StudentManagementAppBE/internal/models/student_status"
 	"Group03-EX-StudentManagementAppBE/internal/repositories"
 
 	"gorm.io/gorm"

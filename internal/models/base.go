@@ -7,6 +7,7 @@ import (
 
 type QuerySort struct {
 	Origin string
+	Sort string `json:"sort" form:"sort"`  
 }
 
 // Parse the query string to order string (Ex: http://example.com/messages?sort=created_at.asc,updated_at.acs

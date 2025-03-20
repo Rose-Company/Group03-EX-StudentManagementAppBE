@@ -1,6 +1,9 @@
 package common
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 func CheckIfSliceContainStr(a string, b []string) bool {
 	for _, v := range b {
@@ -32,4 +35,12 @@ func ConvertNumArrToString(a []uint) string {
 
 	}
 	return idsStr[:len(idsStr)-1]
+}
+
+func ParseSortString(sortStr string) string {
+	sort := strings.Split(sortStr, ".")
+	if len(sort) == 1 {
+		return sort[0] + " ASC"
+	}
+	return sort[0] + " " + sort[1]
 }
