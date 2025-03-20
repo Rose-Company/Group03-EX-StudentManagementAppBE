@@ -10,19 +10,19 @@ import (
 )
 
 func (h *Handler) CreateStudent(c *gin.Context) {
-	ok, _ := common.ProfileFromJwt(c)
+	ok, profile := common.ProfileFromJwt(c)
 	if !ok {
 		common.AbortWithError(c, common.ErrInvalidToken)
 		return
 	}
 
-	var student models.Student
-	if err := c.ShouldBindJSON(&student); err != nil {
+	var createReq models.CreateStudentRequest
+	if err := c.ShouldBindJSON(&createReq); err != nil {
 		common.AbortWithError(c, common.ErrInvalidInput)
 		return
 	}
 
-	createdStudent, err := h.Service.Student.CreateAStudent(c.Request.Context(), &student)
+	err := h.Service.Student.CreateAStudent(c.Request.Context(), profile.Id, &createReq)
 	if err != nil {
 		common.AbortWithError(c, err)
 		return
@@ -31,26 +31,25 @@ func (h *Handler) CreateStudent(c *gin.Context) {
 	c.JSON(http.StatusCreated, common.Response{
 		Code:    200,
 		Message: "Student created successfully",
-		Data:    createdStudent,
 	})
 }
 
 func (h *Handler) UpdateStudent(c *gin.Context) {
-	ok, _ := common.ProfileFromJwt(c)
+	ok, profile := common.ProfileFromJwt(c)
 	if !ok {
 		common.AbortWithError(c, common.ErrInvalidToken)
 		return
 	}
 
-	id := c.Param("id")
-	fmt.Println(id)
-	var student models.Student
-	if err := c.ShouldBindJSON(&student); err != nil {
+	studentId := c.Param("id")
+	fmt.Println(studentId)
+
+	var updateReq models.UpdateStudentRequest
+	if err := c.ShouldBindJSON(&updateReq); err != nil {
 		common.AbortWithError(c, common.ErrInvalidInput)
 		return
 	}
-
-	updatedStudent, err := h.Service.Student.UpdateStudent(c.Request.Context(), id, &student)
+	err := h.Service.Student.UpdateStudent(c.Request.Context(), profile.Id, studentId, &updateReq)
 	if err != nil {
 		common.AbortWithError(c, err)
 		return
@@ -59,19 +58,18 @@ func (h *Handler) UpdateStudent(c *gin.Context) {
 	c.JSON(http.StatusOK, common.Response{
 		Code:    200,
 		Message: "Student updated successfully",
-		Data:    updatedStudent,
 	})
 }
 
 func (h *Handler) DeleteStudentByID(c *gin.Context) {
-	ok, _ := common.ProfileFromJwt(c)
+	ok, profile := common.ProfileFromJwt(c)
 	if !ok {
 		common.AbortWithError(c, common.ErrInvalidToken)
 		return
 	}
 
-	id := c.Param("id")
-	err := h.Service.Student.DeleteByID(c.Request.Context(), id)
+	studentID := c.Param("id")
+	err := h.Service.Student.DeleteStudentByID(c.Request.Context(), profile.Id, studentID)
 	if err != nil {
 		common.AbortWithError(c, err)
 		return

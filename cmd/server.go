@@ -6,6 +6,8 @@ import (
 	"Group03-EX-StudentManagementAppBE/internal/repositories/faculty"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/program"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
+	student_addresses "Group03-EX-StudentManagementAppBE/internal/repositories/student_addresses"
+	student_identity_documents "Group03-EX-StudentManagementAppBE/internal/repositories/student_documents"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student_status"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/user"
 	"Group03-EX-StudentManagementAppBE/internal/services"
@@ -22,6 +24,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// C:\Users\Admin\Desktop\project\Group03-EX-StudentManagementAppBE\internal\repositories\student_addresses.go
 var serverCmd = &cobra.Command{
 	Use:   "server",
 	Short: "Start the API server",
@@ -109,20 +112,24 @@ func initDatabase(cfg *config.Config) *gorm.DB {
 }
 
 type repositoriesContainer struct {
-	userRepo          user.Repository
-	studentRepo       student.Repository
-	facultyRepo       faculty.Repository
-	studentStatusRepo student_status.Repository
-	programRepo       program.Repository
+	userRepo            user.Repository
+	studentRepo         student.Repository
+	facultyRepo         faculty.Repository
+	studentStatusRepo   student_status.Repository
+	StudentAddressRepo  student_addresses.Repository
+	StudentDocumentRepo student_identity_documents.Repository
+  programRepo       program.Repository
 }
 
 func initRepositories(db *gorm.DB) *repositoriesContainer {
 	return &repositoriesContainer{
-		userRepo:          user.NewRepository(db),
-		studentRepo:       student.NewRepository(db),
-		facultyRepo:       faculty.NewRepository(db),
-		studentStatusRepo: student_status.NewRepository(db),
-		programRepo:       program.NewRepository(db),
+		userRepo:            user.NewRepository(db),
+		studentRepo:         student.NewRepository(db),
+		facultyRepo:         faculty.NewRepository(db),
+		studentStatusRepo:   student_status.NewRepository(db),
+		StudentAddressRepo:  student_addresses.NewRepository(db),
+		StudentDocumentRepo: student_identity_documents.NewRepository(db),
+    programRepo:       program.NewRepository(db),
 	}
 }
 
@@ -133,6 +140,8 @@ func initServices(repos *repositoriesContainer) *services.Service {
 		repos.facultyRepo,
 		repos.studentStatusRepo,
 		repos.programRepo,
+		repos.StudentAddressRepo,
+		repos.StudentDocumentRepo,
 	)
 }
 

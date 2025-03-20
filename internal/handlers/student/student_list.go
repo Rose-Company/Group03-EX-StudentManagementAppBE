@@ -20,7 +20,7 @@ func (h *Handler) GetStudentList(c *gin.Context) {
 	}
 
 	// Get student list from service
-	students, err := h.Service.Student.GetList(c, &req)
+	students, err := h.Service.Student.GetStudentList(c, &req)
 	if err != nil {
 		common.AbortWithError(c, err)
 		return
@@ -35,7 +35,7 @@ func (h *Handler) GetStudentStatuses(c *gin.Context) {
 		return
 	}
 
-	studentStatuses, err := h.Service.Student.GetStatuses(c)
+	studentStatuses, err := h.Service.Student.GetStudentStatuses(c)
 	if err != nil {
 		common.AbortWithError(c, err)
 		return
