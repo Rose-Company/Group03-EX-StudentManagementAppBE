@@ -9,10 +9,18 @@ import (
 )
 
 func (h *Handler) GetList(c *gin.Context) {
+	ok, _ := common.ProfileFromJwt(c)
 
-	sort := c.Query("sort")
-
-	result, err := h.Service.Faculty.GetList(c.Request.Context(), sort)
+	if !ok {
+		common.AbortWithError(c, common.ErrInvalidToken)
+		return
+	}
+	var req models.ListFacultyRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		common.AbortWithError(c, common.ErrInvalidInput)
+	}
+	
+	result, err := h.Service.Faculty.GetList(c, &req)
 	if err != nil {
 		c.JSON(common.BAD_REQUEST_STATUS, common.Response{
 			Code:    common.REQUEST_FAILED,
@@ -37,13 +45,13 @@ func (h *Handler) CreateAFaculty(c *gin.Context) {
 		return
 	}
 
-	var faculty models.Faculty
+	var faculty models.CreateFacultyRequest
 	if err := c.ShouldBindJSON(&faculty); err != nil {
 		common.AbortWithError(c, common.ErrInvalidInput)
 		return
 	}
 
-	createdFaculty, err := h.Service.Faculty.CreateAFaculty(c.Request.Context(), &faculty)
+	 err := h.Service.Faculty.CreateAFaculty(c.Request.Context(), &faculty)
 	if err != nil {
 		common.AbortWithError(c, err)
 		return
@@ -52,9 +60,7 @@ func (h *Handler) CreateAFaculty(c *gin.Context) {
 	c.JSON(http.StatusCreated, common.Response{
 		Code:    common.SUCCESS_STATUS,
 		Message: "Faculty created successfully",
-		Data:    createdFaculty,
 	})
-
 }
 
 func (h *Handler) UpdateFaculty(c *gin.Context) {
@@ -66,13 +72,13 @@ func (h *Handler) UpdateFaculty(c *gin.Context) {
 	}
 
 	id := c.Param("id")
-	var faculty models.Faculty
+	var faculty models.UpdateFacultyRequest
 	if err := c.ShouldBindJSON(&faculty); err != nil {
 		common.AbortWithError(c, common.ErrInvalidInput)
 		return
 	}
 
-	UpdateFaculty, err := h.Service.Faculty.UpdateFaculty(c.Request.Context(),id, &faculty)
+	updateFaculty, err := h.Service.Faculty.UpdateFaculty(c.Request.Context(),id, &faculty)
 	if err != nil {
 		common.AbortWithError(c, err)
 		return
@@ -81,7 +87,7 @@ func (h *Handler) UpdateFaculty(c *gin.Context) {
 	c.JSON(http.StatusOK, common.Response{
 		Code:    common.SUCCESS_STATUS,
 		Message: "Faculty updated successfully",
-		Data:    UpdateFaculty,
+		Data:    updateFaculty,
 	})
 }
 

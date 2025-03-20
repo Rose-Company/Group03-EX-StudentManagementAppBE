@@ -5,7 +5,6 @@ import (
 	models2 "Group03-EX-StudentManagementAppBE/internal/models"
 	models "Group03-EX-StudentManagementAppBE/internal/models/student"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
-	"Group03-EX-StudentManagementAppBE/internal/repositories/student_status"
 	"context"
 
 	"gorm.io/gorm"
@@ -15,24 +14,19 @@ type Service interface {
 	// Define the methods that the service layer should implement
 	GetByID(ctx context.Context, id string) (*models.StudentResponse, error)
 	GetList(ctx context.Context, req *models.ListStudentRequest) (*models2.BaseListResponse, error)
-	CreateAStudent(ctx context.Context, req *models.Student) (*models.StudentResponse, error)
+	CreateAStudent(ctx context.Context, req *models.Student) ( error)
 	UpdateStudent(ctx context.Context, id string, req *models.Student) (*models.StudentResponse, error)
 	DeleteByID(ctx context.Context, id string) error
-	GetStatuses(ctx context.Context, sort string) ([]*models.StudentStatus, error)
-	CreateStudentStatus(ctx context.Context, studentStatus *models.StudentStatus) (*models.StudentStatus, error)
-	UpdateStudentStatus(ctx context.Context,id string, studentStatus *models.StudentStatus) (*models.StudentStatus, error)
-	DeleteStudentStatus(ctx context.Context, id string) error
+
 }
 
 type studentService struct {
 	studentRepo       student.Repository
-	studentStatusRepo student_status.Repository
 }
 
-func NewStudentService(studentRepo student.Repository, studentStatusRepo student_status.Repository) Service {
+func NewStudentService(studentRepo student.Repository) Service {
 	return &studentService{
 		studentRepo:       studentRepo,
-		studentStatusRepo: studentStatusRepo,
 	}
 }
 
@@ -48,6 +42,9 @@ func (s *studentService) GetList(ctx context.Context, req *models.ListStudentReq
 	if req.Sort == "" {
 		req.Sort = "student_code.asc"
 	}
+
+	
+	sort := common.ParseSortString(req.Sort)
 
 	totalCount, err := s.studentRepo.Count(ctx, models2.QueryParams{}, func(tx *gorm.DB) {
 		// Apply student_code filter if provided
@@ -75,7 +72,7 @@ func (s *studentService) GetList(ctx context.Context, req *models.ListStudentReq
 		Offset: offset,
 		Limit:  req.PageSize,
 		QuerySort: models2.QuerySort{
-			Origin: req.Sort,
+			Sort: sort,
 		},
 	}, func(tx *gorm.DB) {
 		if req.StudentCode != "" {
@@ -109,15 +106,16 @@ func (s *studentService) GetList(ctx context.Context, req *models.ListStudentReq
 	return response, nil
 }
 
-func (s *studentService) CreateAStudent(ctx context.Context, student *models.Student) (*models.StudentResponse, error) {
+
+func (s *studentService) CreateAStudent(ctx context.Context, student *models.Student) ( error) {
 	if student == nil {
-		return nil, common.ErrInvalidInput
+		return  common.ErrInvalidInput
 	}
-	createdStudent, err := s.studentRepo.Create(ctx, student)
+	err := s.studentRepo.Create(ctx, student)
 	if err != nil {
-		return nil, err
+		return  err
 	}
-	return createdStudent.ToResponse(), nil
+	return  nil
 }
 
 func (s *studentService) UpdateStudent(ctx context.Context, id string, student *models.Student) (*models.StudentResponse, error) {
@@ -136,40 +134,3 @@ func (s *studentService) DeleteByID(ctx context.Context, id string) error {
 }
 
 
-func (s *studentService) GetStatuses(ctx context.Context, sort string) ([]*models.StudentStatus, error) {
-	// Cấu hình query params để truyền sort
-	queryParams := models2.QueryParams{
-		QuerySort: models2.QuerySort{
-			Sort: sort, // Truyền sort vào QuerySort
-		},
-	}
-
-	// Gọi repository với query params đã có sort
-	studentStatus, err := s.studentStatusRepo.List(ctx, queryParams)
-	if err != nil {
-		return nil, err
-	}
-
-	return studentStatus, nil
-}
-
-
-func (s *studentService) CreateStudentStatus(ctx context.Context, studentStatus *models.StudentStatus) (*models.StudentStatus, error) {
-	createdStudentStatus, err := s.studentStatusRepo.Create(ctx, studentStatus)
-	if err != nil {
-		return nil, err
-	}
-	return createdStudentStatus, nil
-}
-
-func (s *studentService) UpdateStudentStatus(ctx context.Context,id string, studentStatus *models.StudentStatus) (*models.StudentStatus, error) {
-	updatedStudentStatus, err := s.studentStatusRepo.Update(ctx,id, studentStatus)
-	if err != nil {
-		return nil, err
-	}
-	return updatedStudentStatus, nil
-}
-
-func (s *studentService) DeleteStudentStatus(ctx context.Context, id string) error {
-	return s.studentStatusRepo.DeleteByID(ctx, id)
-}

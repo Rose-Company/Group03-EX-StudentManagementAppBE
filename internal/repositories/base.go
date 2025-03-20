@@ -18,7 +18,7 @@ type BaseRepository[M Model] interface {
 	List(ctx context.Context, params models.QueryParams, clauses ...Clause) ([]*M, error)
 	GetByID(ctx context.Context, id interface{}) (*M, error)
 	Count(ctx context.Context, params models.QueryParams, clauses ...Clause) (int64, error)
-	Create(ctx context.Context, o *M) (*M, error)
+	Create(ctx context.Context, o *M) ( error)
 	Update(ctx context.Context, id interface{}, o *M, clauses ...Clause) (*M, error)
 	UpdateColumns(ctx context.Context, id interface{}, columns map[string]interface{}, clauses ...Clause) (*M, error)
 	GetByIDSelected(ctx context.Context, id interface{}, fields []string) (data *M, err error)
@@ -31,7 +31,6 @@ type BaseRepository[M Model] interface {
 	UpdatesColumnsByConditions(ctx context.Context, columns map[string]interface{}, clauses ...Clause) error
 	GetList(ctx context.Context) ([]M, error)
 	DeleteByID(ctx context.Context, id string) error
-	GetListFaculty(ctx context.Context, sort string) ([]M, error)
 }
 
 type baseRepository[M Model] struct {
@@ -79,14 +78,6 @@ func (b *baseRepository[M]) List(ctx context.Context, params models.QueryParams,
 	return oList, nil
 }
 
-func (b *baseRepository[M]) CreateAFaculty(ctx context.Context, faculty *M) (*M, error) {
-	err := b.db.Model(b.model).Create(faculty).Error
-	if err != nil {
-		return nil, err
-	}
-
-	return faculty, nil
-}
 
 
 func (b *baseRepository[M]) Count(ctx context.Context, params models.QueryParams, clauses ...Clause) (int64, error) {
@@ -113,13 +104,13 @@ func (b *baseRepository[M]) GetByID(ctx context.Context, id interface{}) (*M, er
 	return o, nil
 }
 
-func (b *baseRepository[M]) Create(ctx context.Context, o *M) (*M, error) {
+func (b *baseRepository[M]) Create(ctx context.Context, o *M) ( error) {
 	err := b.db.Model(b.model).Create(o).Error
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return o, nil
+	return  nil
 }
 
 func (b *baseRepository[M]) Update(ctx context.Context, id interface{}, o *M, clauses ...Clause) (*M, error) {
@@ -252,24 +243,4 @@ func (b *baseRepository[M]) DeleteByID(ctx context.Context, id string) error {
 	tx := b.db.Model(b.model)
 	err := tx.Where("id = ?", id).Delete(&o).Error
 	return err
-}
-
-func (r *baseRepository[M]) GetListFaculty(ctx context.Context, sort string) ([]M, error) {
-    var faculties []M
-    query := r.db
-
-    // Kiểm tra tham số "sort" và áp dụng sắp xếp phù hợp
-    switch sort {
-    case "name.asc":
-        query = query.Order("name ASC")
-    case "name.desc":
-        query = query.Order("name DESC")
-    }
-
-    // Thực hiện truy vấn
-    if err := query.Find(&faculties).Error; err != nil {
-        return nil, err
-    }
-
-    return faculties, nil
 }

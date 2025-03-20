@@ -21,7 +21,7 @@ func (h *Handler) CreateStudent(c *gin.Context) {
 		return
 	}
 
-	createdStudent, err := h.Service.Student.CreateAStudent(c.Request.Context(), &student)
+	 err := h.Service.Student.CreateAStudent(c.Request.Context(), &student)
 	if err != nil {
 		common.AbortWithError(c, err)
 		return
@@ -30,7 +30,6 @@ func (h *Handler) CreateStudent(c *gin.Context) {
 	c.JSON(http.StatusCreated, common.Response{
 		Code:    200,
 		Message: "Student created successfully",
-		Data:    createdStudent,
 	})
 }
 

@@ -23,7 +23,7 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 	{
 		facultyRoutes.GET("", middleware.UserAuthentication, h.GetList)
 		facultyRoutes.POST("", middleware.UserAuthentication, h.CreateAFaculty)
-		facultyRoutes.PUT("/:id", middleware.UserAuthentication, h.UpdateFaculty)
+		facultyRoutes.PATCH("/:id", middleware.UserAuthentication, h.UpdateFaculty)
 		facultyRoutes.DELETE("/:id", middleware.UserAuthentication, h.DeleteFaculty)
 	}
 }

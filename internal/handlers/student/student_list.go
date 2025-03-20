@@ -19,6 +19,7 @@ func (h *Handler) GetStudentList(c *gin.Context) {
 		common.AbortWithError(c, common.ErrInvalidInput)
 	}
 
+
 	// Get student list from service
 	students, err := h.Service.Student.GetList(c, &req)
 	if err != nil {
@@ -28,19 +29,3 @@ func (h *Handler) GetStudentList(c *gin.Context) {
 	c.JSON(common.SUCCESS_STATUS, students)
 }
 
-func (h *Handler) GetStudentStatuses(c *gin.Context) {
-	sort := c.Query("sort")
-	ok, _ := common.ProfileFromJwt(c)
-	if !ok {
-		common.AbortWithError(c, common.ErrInvalidToken)
-		return
-	}
-
-	studentStatuses, err := h.Service.Student.GetStatuses(c, sort)
-	if err != nil {
-		common.AbortWithError(c, err)
-		return
-	}
-	c.JSON(common.SUCCESS_STATUS, studentStatuses)
-
-}
