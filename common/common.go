@@ -6,7 +6,7 @@ const (
 	POSTGRES_TABLE_NAME_STUDENTS          = "PUBLIC.students"
 	POSTGRES_TABLE_NAME_FACULTY           = "PUBLIC.faculties"
 	POSTGRES_TABLE_NAME_STUDENTS_STATUSES = "PUBLIC.student_statuses"
-	POSTGRES_TABLE_NAME_PROGRAMS          = "PUBLIC.student_programs"
+	POSTGRES_TABLE_NAME_STUDENT_PROGRAMS  = "PUBLIC.student_programs"
 )
 
 const (

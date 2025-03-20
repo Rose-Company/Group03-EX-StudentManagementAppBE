@@ -10,7 +10,7 @@ type Program struct {
 }
 
 func (p *Program) TableName() string {
-	return common.POSTGRES_TABLE_NAME_PROGRAMS
+	return common.POSTGRES_TABLE_NAME_STUDENT_PROGRAMS
 }
 
 type ListProgramRequest struct {

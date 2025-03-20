@@ -12,20 +12,22 @@ import (
 )
 
 func (h *Handler) ListPrograms(c *gin.Context) {
-	ok, _ := common.ProfileFromJwt(c)
-	if !ok {
+	ok, profile := common.ProfileFromJwt(c)
+	if !ok || profile == nil {
 		common.AbortWithError(c, common.ErrInvalidToken)
 		return
 	}
 
+	log.Printf("User ID: %s is listing programs", profile.Id)
+
 	var req models.ListProgramRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		common.AbortWithError(c, common.ErrInvalidInput)
+		common.AbortWithError(c, err)
 	}
 
 	programs, err := h.Service.Program.ListPrograms(c, &req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, common.ResponseCustom(common.REQUEST_FAILED, nil, err.Error()))
+		common.AbortWithError(c, err)
 		return
 	}
 
@@ -35,68 +37,68 @@ func (h *Handler) ListPrograms(c *gin.Context) {
 func (h *Handler) CreateProgram(c *gin.Context) {
 	ok, profile := common.ProfileFromJwt(c)
 	if !ok || profile == nil {
-		c.JSON(http.StatusUnauthorized, common.ResponseCustom(common.REQUEST_FAILED, nil, "Unauthorized"))
+		common.AbortWithError(c, common.ErrInvalidToken)
 		return
 	}
 
 	var program models.Program
 	if err := c.ShouldBindJSON(&program); err != nil {
-		log.Printf("Error binding create program request: %v", err)
-		c.JSON(http.StatusBadRequest, common.ResponseCustom(common.REQUEST_FAILED, nil, err.Error()))
+		common.AbortWithError(c, err)
 		return
 	}
 
-	createdProgram, err := h.Service.Program.CreateProgram(c, &program)
+	_, err := h.Service.Program.CreateProgram(c.Request.Context(), profile.Id, &program)
 	if err != nil {
-		log.Printf("Error creating program: %v", err)
-		c.JSON(http.StatusInternalServerError, common.ResponseCustom(common.REQUEST_FAILED, nil, err.Error()))
+		common.AbortWithError(c, err)
 		return
 	}
-
-	log.Printf("Program created successfully with ID: %d", createdProgram.ID)
-	c.JSON(http.StatusCreated, common.ResponseCustom(common.REQUEST_SUCCESS, createdProgram, "Program created successfully"))
+	c.JSON(http.StatusCreated, common.Response{
+		Code:    200,
+		Message: "Student created successfully",
+	})
 }
 
 func (h *Handler) UpdateProgram(c *gin.Context) {
 	ok, profile := common.ProfileFromJwt(c)
 	if !ok || profile == nil {
-		c.JSON(http.StatusUnauthorized, common.ResponseCustom(common.REQUEST_FAILED, nil, "Unauthorized"))
+		common.AbortWithError(c, common.ErrInvalidToken)
 		return
 	}
 
 	id := c.Param("id")
 	var program models.Program
 	if err := c.ShouldBindJSON(&program); err != nil {
-		log.Printf("Error binding update program request: %v", err)
-		c.JSON(http.StatusBadRequest, common.ResponseCustom(common.REQUEST_FAILED, nil, err.Error()))
+		common.AbortWithError(c, err)
 		return
 	}
 
-	updatedProgram, err := h.Service.Program.UpdateProgram(c, id, &program)
+	_, err := h.Service.Program.UpdateProgram(c, profile.Id, id, &program)
 	if err != nil {
-		log.Printf("Error updating program: %v", err)
-		c.JSON(http.StatusInternalServerError, common.ResponseCustom(common.REQUEST_FAILED, nil, err.Error()))
+		common.AbortWithError(c, err)
 		return
 	}
+	c.JSON(http.StatusOK, common.Response{
+		Code:    200,
+		Message: "Student update successfully",
+	})
 
-	log.Printf("Program updated successfully with ID: %s", id)
-	c.JSON(http.StatusOK, common.ResponseCustom(common.REQUEST_SUCCESS, updatedProgram, "Program updated successfully"))
 }
 
 func (h *Handler) DeleteProgram(c *gin.Context) {
 	ok, profile := common.ProfileFromJwt(c)
 	if !ok || profile == nil {
-		c.JSON(http.StatusUnauthorized, common.ResponseCustom(common.REQUEST_FAILED, nil, "Unauthorized"))
+		common.AbortWithError(c, common.ErrInvalidToken)
 		return
 	}
 
 	id := c.Param("id")
-	if err := h.Service.Program.DeleteProgram(c, id); err != nil {
-		log.Printf("Error deleting program: %v", err)
-		c.JSON(http.StatusInternalServerError, common.ResponseCustom(common.REQUEST_FAILED, nil, err.Error()))
+	if err := h.Service.Program.DeleteProgram(c, profile.Id, id); err != nil {
+		common.AbortWithError(c, err)
 		return
 	}
 
-	log.Printf("Program deleted successfully with ID: %s", id)
-	c.JSON(http.StatusOK, common.ResponseCustom(common.REQUEST_SUCCESS, nil, "Program deleted successfully"))
+	c.JSON(http.StatusOK, common.Response{
+		Code:    200,
+		Message: "Student delete successfully",
+	})
 }
