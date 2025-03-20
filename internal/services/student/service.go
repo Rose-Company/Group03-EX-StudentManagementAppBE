@@ -728,6 +728,7 @@ func (s *studentService) processCSVFile(ctx context.Context, userID string, read
 }
 
 // Process JSON files with goroutines for concurrent processing
+// Refactored JSON processing function with improved error handling
 func (s *studentService) processJSONFile(ctx context.Context, userID string, reader io.Reader, logger *log.Entry) (*admin_models.ImportResult, error) {
 	// Read JSON data
 	var studentsData []map[string]interface{}
@@ -759,15 +760,46 @@ func (s *studentService) processJSONFile(ctx context.Context, userID string, rea
 	for i := 0; i < maxWorkers; i++ {
 		wg.Add(1)
 		go func(workerID int) {
-			defer wg.Done()
+			defer func() {
+				// Recover from panics in goroutines
+				if r := recover(); r != nil {
+					logger.WithField("recover", r).Error("Recovered from panic in worker goroutine")
+					atomic.AddInt32(&errorCount, 1)
+				}
+				wg.Done()
+			}()
+
 			workerLogger := logger.WithField("workerID", workerID)
 
 			for job := range dataChan {
 				index := job.index
 				data := job.data
 
-				// Convert JSON record to CreateStudentRequest
-				studentReq, err := s.createStudentRequestFromJSON(data)
+				// Skip nil or empty data
+				if data == nil || len(data) == 0 {
+					atomic.AddInt32(&errorCount, 1)
+					mu.Lock()
+					failedRecords = append(failedRecords, admin_models.FailedRecordDetail{
+						RowNumber: index + 1, // +1 for human-readable indexing
+						Error:     "Empty or nil record data",
+					})
+					mu.Unlock()
+					continue
+				}
+
+				// Convert JSON record to CreateStudentRequest with panic protection
+				var studentReq *models.CreateStudentRequest
+				var err error
+
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							err = fmt.Errorf("panic while parsing JSON data: %v", r)
+						}
+					}()
+					studentReq, err = s.createStudentRequestFromJSON(data)
+				}()
+
 				if err != nil {
 					atomic.AddInt32(&errorCount, 1)
 					mu.Lock()
@@ -780,8 +812,29 @@ func (s *studentService) processJSONFile(ctx context.Context, userID string, rea
 					continue
 				}
 
-				// Create student
-				err = s.CreateAStudent(ctx, userID, studentReq)
+				// Double-check required fields before proceeding
+				if studentReq == nil || studentReq.StudentCode == nil || studentReq.Fullname == nil || studentReq.Email == nil {
+					atomic.AddInt32(&errorCount, 1)
+					mu.Lock()
+					failedRecords = append(failedRecords, admin_models.FailedRecordDetail{
+						RowNumber: index + 1,
+						Error:     "Missing required fields after parsing",
+					})
+					mu.Unlock()
+					workerLogger.WithField("recordIndex", index).Warn("Missing required fields after parsing JSON data, skipping")
+					continue
+				}
+
+				// Create student with panic protection
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							err = fmt.Errorf("panic while creating student: %v", r)
+						}
+					}()
+					err = s.CreateAStudent(ctx, userID, studentReq)
+				}()
+
 				if err != nil {
 					atomic.AddInt32(&errorCount, 1)
 					mu.Lock()
@@ -1078,37 +1131,36 @@ func (s *studentService) createStudentRequestFromCSV(row []string, headerMap map
 
 // Helper function to create student request from JSON data
 func (s *studentService) createStudentRequestFromJSON(data map[string]interface{}) (*models.CreateStudentRequest, error) {
-	// Helper function to get string value with case-insensitive key matching
+	// Debug logging
+	jsonBytes, _ := json.Marshal(data)
+	log.WithField("data", string(jsonBytes)).Debug("Processing JSON record")
+
+	// Helper function to get string value with case-insensitive key matching and nil protection
 	getString := func(key string) *string {
-		// Try exact key first
-		if val, ok := data[key]; ok && val != nil {
-			if strVal, ok := val.(string); ok && strVal != "" {
-				return &strVal
-			}
+		// Try various key formats with nil protection
+		possibleKeys := []string{
+			key,                                // Original
+			strings.ToUpper(key[:1]) + key[1:], // PascalCase
+			strings.ToLower(key),               // lowercase
 		}
 
-		// Try pascal case (e.g., "StudentCode")
-		pascalKey := strings.ToUpper(key[:1]) + key[1:]
-		if val, ok := data[pascalKey]; ok && val != nil {
-			if strVal, ok := val.(string); ok && strVal != "" {
-				return &strVal
+		for _, k := range possibleKeys {
+			if val, ok := data[k]; ok && val != nil {
+				if strVal, ok := val.(string); ok && strVal != "" {
+					return &strVal
+				} else if numVal, ok := val.(float64); ok {
+					// Convert numeric to string if needed
+					strVal := fmt.Sprintf("%v", numVal)
+					return &strVal
+				}
 			}
 		}
-
-		// Try lowercase (e.g., "studentcode")
-		lowerKey := strings.ToLower(key)
-		if val, ok := data[lowerKey]; ok && val != nil {
-			if strVal, ok := val.(string); ok && strVal != "" {
-				return &strVal
-			}
-		}
-
 		return nil
 	}
 
-	// Helper function to get int value with case-insensitive key matching
+	// Helper function to get int value with case-insensitive key matching and nil protection
 	getInt := func(key string) *int {
-		// Try various key formats
+		// Try various key formats with nil protection
 		possibleKeys := []string{
 			key,                                // Original
 			strings.ToUpper(key[:1]) + key[1:], // PascalCase
@@ -1131,12 +1183,19 @@ func (s *studentService) createStudentRequestFromJSON(data map[string]interface{
 				}
 			}
 		}
+
+		// Return default value (1) for status ID if not provided
+		if strings.ToLower(key) == "statusid" {
+			defaultStatus := 1
+			return &defaultStatus
+		}
+
 		return nil
 	}
 
-	// Helper function to get date value with case-insensitive key matching
+	// Helper function to get date value with case-insensitive key matching and nil protection
 	getDate := func(key string) *time.Time {
-		// Try various key formats
+		// Try various key formats with nil protection
 		possibleKeys := []string{
 			key,                                // Original
 			strings.ToUpper(key[:1]) + key[1:], // PascalCase
@@ -1163,10 +1222,17 @@ func (s *studentService) createStudentRequestFromJSON(data map[string]interface{
 				}
 			}
 		}
+
+		// Return current date as fallback for required date fields
+		if strings.ToLower(key) == "dateofbirth" {
+			now := time.Now()
+			return &now
+		}
+
 		return nil
 	}
 
-	// Create student request
+	// Create student request with nil checks and default values
 	req := &models.CreateStudentRequest{
 		StudentCode: getInt("studentCode"),
 		Fullname:    getString("fullname"),
@@ -1181,8 +1247,69 @@ func (s *studentService) createStudentRequestFromJSON(data map[string]interface{
 		StatusID:    getInt("statusId"),
 		ProgramID:   getInt("programId"),
 		Nationality: getString("nationality"),
-		Addresses:   nil,
-		Documents:   nil,
+		Addresses:   make([]*models.AddressRequest, 0),
+		Documents:   make([]*models.DocumentRequest, 0),
+	}
+
+	// Ensure required fields have default values if not provided
+	if req.StudentCode == nil {
+		return nil, fmt.Errorf("missing required field: studentCode")
+	}
+
+	if req.Fullname == nil {
+		return nil, fmt.Errorf("missing required field: fullname")
+	}
+
+	if req.Email == nil {
+		return nil, fmt.Errorf("missing required field: email")
+	}
+
+	// Ensure gender has default value if not provided
+	if req.Gender == nil {
+		defaultGender := "Other"
+		req.Gender = &defaultGender
+	}
+
+	// Ensure batch has default value if not provided
+	if req.Batch == nil {
+		currentYear := fmt.Sprintf("%d", time.Now().Year())
+		req.Batch = &currentYear
+	}
+
+	// Ensure program has default value if not provided
+	if req.Program == nil {
+		defaultProgram := "Unknown"
+		req.Program = &defaultProgram
+	}
+
+	// Ensure address has default value if not provided
+	if req.Address == nil {
+		defaultAddress := ""
+		req.Address = &defaultAddress
+	}
+
+	// Ensure phone has default value if not provided
+	if req.Phone == nil {
+		defaultPhone := ""
+		req.Phone = &defaultPhone
+	}
+
+	// Ensure programID has default value if not provided
+	if req.ProgramID == nil {
+		defaultProgramID := 1
+		req.ProgramID = &defaultProgramID
+	}
+
+	// Ensure facultyID has default value if not provided
+	if req.FacultyID == nil {
+		defaultFacultyID := 1
+		req.FacultyID = &defaultFacultyID
+	}
+
+	// Ensure nationality has default value if not provided
+	if req.Nationality == nil {
+		defaultNationality := "Vietnam"
+		req.Nationality = &defaultNationality
 	}
 
 	// Process addresses from flat structure in JSON
@@ -1195,8 +1322,12 @@ func (s *studentService) createStudentRequestFromJSON(data map[string]interface{
 
 	addressMap := make(map[string]*models.AddressRequest)
 
-	// Check for address fields in the flat structure
+	// Check for address fields in the flat structure with nil protection
 	for key, value := range data {
+		if value == nil {
+			continue // Skip nil values
+		}
+
 		// Look for fields like "PermanentStreet", "TemporaryCity", etc.
 		for prefix := range addressTypes {
 			if strings.HasPrefix(key, prefix) && len(key) > len(prefix) {
@@ -1210,98 +1341,53 @@ func (s *studentService) createStudentRequestFromJSON(data map[string]interface{
 					}
 				}
 
-				// Set the appropriate field
-				if strings.EqualFold(field, "Street") {
-					if strVal, ok := value.(string); ok && strVal != "" {
-						addressMap[prefix].Street = strVal
-					}
-				} else if strings.EqualFold(field, "Ward") {
-					if strVal, ok := value.(string); ok && strVal != "" {
-						addressMap[prefix].Ward = strVal
-					}
-				} else if strings.EqualFold(field, "District") {
-					if strVal, ok := value.(string); ok && strVal != "" {
-						addressMap[prefix].District = strVal
-					}
-				} else if strings.EqualFold(field, "City") {
-					if strVal, ok := value.(string); ok && strVal != "" {
-						addressMap[prefix].City = strVal
-					}
-				} else if strings.EqualFold(field, "Country") {
-					if strVal, ok := value.(string); ok && strVal != "" {
-						addressMap[prefix].Country = strVal
+				// Set the appropriate field with nil check
+				if value != nil {
+					if strings.EqualFold(field, "Street") {
+						if strVal, ok := value.(string); ok && strVal != "" {
+							addressMap[prefix].Street = strVal
+						}
+					} else if strings.EqualFold(field, "Ward") {
+						if strVal, ok := value.(string); ok && strVal != "" {
+							addressMap[prefix].Ward = strVal
+						}
+					} else if strings.EqualFold(field, "District") {
+						if strVal, ok := value.(string); ok && strVal != "" {
+							addressMap[prefix].District = strVal
+						}
+					} else if strings.EqualFold(field, "City") {
+						if strVal, ok := value.(string); ok && strVal != "" {
+							addressMap[prefix].City = strVal
+						}
+					} else if strings.EqualFold(field, "Country") {
+						if strVal, ok := value.(string); ok && strVal != "" {
+							addressMap[prefix].Country = strVal
+						}
 					}
 				}
 			}
 		}
 	}
 
-	// Add valid addresses to the request
+	// Add valid addresses to the request with nil protection
 	for _, addr := range addressMap {
-		// Only add if we have at least street and city
-		if addr.Street != "" && addr.City != "" {
+		// Only add if we have at least street and city and they're not nil
+		if addr != nil && addr.Street != "" && addr.City != "" {
 			req.Addresses = append(req.Addresses, addr)
 		}
 	}
 
-	// Also check for addresses in the normal nested structure
-	if addresses, ok := data["addresses"].([]interface{}); ok {
-		for _, addrData := range addresses {
-			if addrMap, ok := addrData.(map[string]interface{}); ok {
-				addressType := ""
-				if typeVal, ok := addrMap["addressType"].(string); ok {
-					addressType = typeVal
-				}
-
-				street := ""
-				if val, ok := addrMap["street"].(string); ok {
-					street = val
-				}
-
-				ward := ""
-				if val, ok := addrMap["ward"].(string); ok {
-					ward = val
-				}
-
-				district := ""
-				if val, ok := addrMap["district"].(string); ok {
-					district = val
-				}
-
-				city := ""
-				if val, ok := addrMap["city"].(string); ok {
-					city = val
-				}
-
-				country := "Vietnam" // Default
-				if val, ok := addrMap["country"].(string); ok {
-					country = val
-				}
-
-				// Only add if we have at least address type, street and city
-				if addressType != "" && street != "" && city != "" {
-					address := &models.AddressRequest{
-						AddressType: addressType,
-						Street:      street,
-						Ward:        ward,
-						District:    district,
-						City:        city,
-						Country:     country,
-					}
-
-					req.Addresses = append(req.Addresses, address)
-				}
-			}
-		}
-	}
-
-	// Process documents from flat structure in JSON
+	// Process documents from flat structure in JSON with nil protection
 	// Map fields like CCCDNumber, CCCDIssueDate, etc. to document objects
 	docPrefixes := []string{"CCCD", "CMND", "Passport"}
 	docMap := make(map[string]*models.DocumentRequest)
 
-	// Check for document fields in the flat structure
+	// Check for document fields in the flat structure with nil protection
 	for key, value := range data {
+		if value == nil {
+			continue // Skip nil values
+		}
+
 		for _, prefix := range docPrefixes {
 			if strings.HasPrefix(key, prefix) && len(key) > len(prefix) {
 				field := key[len(prefix):]
@@ -1314,14 +1400,14 @@ func (s *studentService) createStudentRequestFromJSON(data map[string]interface{
 					}
 				}
 
-				// Set the appropriate field
+				// Set the appropriate field with nil protection
 				if strings.EqualFold(field, "Number") {
 					if numVal, ok := value.(float64); ok {
 						docMap[prefix].DocumentNumber = fmt.Sprintf("%v", int(numVal))
 					} else if strVal, ok := value.(string); ok && strVal != "" {
 						docMap[prefix].DocumentNumber = strVal
 					}
-				} else if strings.EqualFold(field, "IssueDate") {
+				} else if strings.EqualFold(field, "IssueDate") && value != nil {
 					if strVal, ok := value.(string); ok && strVal != "" {
 						// Try different date formats
 						formats := []string{
@@ -1339,11 +1425,11 @@ func (s *studentService) createStudentRequestFromJSON(data map[string]interface{
 							}
 						}
 					}
-				} else if strings.EqualFold(field, "IssuePlace") {
+				} else if strings.EqualFold(field, "IssuePlace") && value != nil {
 					if strVal, ok := value.(string); ok && strVal != "" {
 						docMap[prefix].IssuePlace = strVal
 					}
-				} else if strings.EqualFold(field, "ExpiryDate") {
+				} else if strings.EqualFold(field, "ExpiryDate") && value != nil {
 					if strVal, ok := value.(string); ok && strVal != "" {
 						// Try different date formats
 						formats := []string{
@@ -1361,126 +1447,33 @@ func (s *studentService) createStudentRequestFromJSON(data map[string]interface{
 							}
 						}
 					}
-				} else if strings.EqualFold(field, "Country") {
+				} else if strings.EqualFold(field, "Country") && value != nil {
 					if strVal, ok := value.(string); ok && strVal != "" {
 						docMap[prefix].CountryOfIssue = strVal
 					}
-				} else if strings.EqualFold(field, "HasChip") {
+				} else if strings.EqualFold(field, "HasChip") && value != nil {
 					if boolVal, ok := value.(bool); ok {
 						docMap[prefix].HasChip = boolVal
 					}
 				} else if strings.EqualFold(field, "Notes") {
 					if strVal, ok := value.(string); ok && strVal != "" {
 						docMap[prefix].Notes = &strVal
+					} else if value == nil {
+						// Handle null notes explicitly
+						emptyNote := ""
+						docMap[prefix].Notes = &emptyNote
 					}
 				}
 			}
 		}
 	}
 
-	// Add valid documents to the request
+	// Add valid documents to the request with nil protection
 	for _, doc := range docMap {
-		// Only add if we have at least document number
-		if doc.DocumentNumber != "" {
+		// Only add if we have at least document number and it's not nil
+		if doc != nil && doc.DocumentNumber != "" {
 			req.Documents = append(req.Documents, doc)
 		}
-	}
-
-	// Also check for documents in the normal nested structure
-	if documents, ok := data["documents"].([]interface{}); ok {
-		for _, docData := range documents {
-			if docMap, ok := docData.(map[string]interface{}); ok {
-				documentType := ""
-				if typeVal, ok := docMap["documentType"].(string); ok {
-					documentType = typeVal
-				}
-
-				documentNumber := ""
-				if val, ok := docMap["documentNumber"].(string); ok {
-					documentNumber = val
-				}
-
-				// Only add if we have at least document type and number
-				if documentType != "" && documentNumber != "" {
-					document := &models.DocumentRequest{
-						DocumentType:   documentType,
-						DocumentNumber: documentNumber,
-						CountryOfIssue: "Vietnam", // Default
-					}
-
-					// Get issue date if it exists
-					if issueDateStr, ok := docMap["issueDate"].(string); ok && issueDateStr != "" {
-						// Try different date formats
-						formats := []string{
-							"2006-01-02",
-							"01/02/2006",
-							"02/01/2006",
-							"2006/01/02",
-						}
-
-						for _, format := range formats {
-							issueDate, err := time.Parse(format, issueDateStr)
-							if err == nil {
-								document.IssueDate = issueDate
-								break
-							}
-						}
-					}
-
-					// Get issue place if it exists
-					if issuePlace, ok := docMap["issuePlace"].(string); ok {
-						document.IssuePlace = issuePlace
-					}
-
-					// Get expiry date if it exists
-					if expiryDateStr, ok := docMap["expiryDate"].(string); ok && expiryDateStr != "" {
-						// Try different date formats
-						formats := []string{
-							"2006-01-02",
-							"01/02/2006",
-							"02/01/2006",
-							"2006/01/02",
-						}
-
-						for _, format := range formats {
-							expiryDate, err := time.Parse(format, expiryDateStr)
-							if err == nil {
-								document.ExpiryDate = expiryDate
-								break
-							}
-						}
-					}
-
-					// Get country of issue if it exists
-					if country, ok := docMap["countryOfIssue"].(string); ok {
-						document.CountryOfIssue = country
-					}
-
-					// Get has chip if it exists
-					if hasChip, ok := docMap["hasChip"].(bool); ok {
-						document.HasChip = hasChip
-					}
-
-					// Get notes if it exists
-					if notes, ok := docMap["notes"].(string); ok {
-						document.Notes = &notes
-					}
-
-					req.Documents = append(req.Documents, document)
-				}
-			}
-		}
-	}
-
-	// Validate required fields
-	if req.StudentCode == nil || req.Fullname == nil || req.Email == nil {
-		return nil, fmt.Errorf("missing required fields: studentCode, fullname, or email")
-	}
-
-	// Set default status if not provided
-	if req.StatusID == nil {
-		defaultStatus := 1 // Assuming 1 is "Active" or the default status
-		req.StatusID = &defaultStatus
 	}
 
 	return req, nil
