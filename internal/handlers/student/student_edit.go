@@ -2,7 +2,9 @@ package student
 
 import (
 	"Group03-EX-StudentManagementAppBE/common"
-	models "Group03-EX-StudentManagementAppBE/internal/models/student"
+	"Group03-EX-StudentManagementAppBE/internal/models"
+	student_models "Group03-EX-StudentManagementAppBE/internal/models/student"
+	"fmt"
 	"net/http"
 
 	"log"
@@ -19,12 +21,11 @@ func (h *Handler) CreateStudent(c *gin.Context) {
 		return
 	}
 
-	var createReq models.CreateStudentRequest
+	var createReq student_models.CreateStudentRequest
 	if err := c.ShouldBindJSON(&createReq); err != nil {
 		common.AbortWithError(c, common.ErrInvalidInput)
 		return
 	}
-
 
 	err := h.Service.Student.CreateAStudent(c.Request.Context(), profile.Id, &createReq)
 	if err != nil {
@@ -42,7 +43,7 @@ func (h *Handler) CreateStudent(c *gin.Context) {
 
 func (h *Handler) UpdateStudent(c *gin.Context) {
 	log.Println("Handling request: UpdateStudent - Updating student")
-  
+
 	ok, profile := common.ProfileFromJwt(c)
 	if !ok {
 		log.Println("Unauthorized access attempt in UpdateStudent")
@@ -50,23 +51,22 @@ func (h *Handler) UpdateStudent(c *gin.Context) {
 		return
 	}
 
-
 	studentId := c.Param("id")
 	fmt.Println(studentId)
-  
-	var updateReq models.UpdateStudentRequest
+
+	var updateReq student_models.UpdateStudentRequest
 	if err := c.ShouldBindJSON(&updateReq); err != nil {
 		common.AbortWithError(c, common.ErrInvalidInput)
 		return
 	}
 	err := h.Service.Student.UpdateStudent(c.Request.Context(), profile.Id, studentId, &updateReq)
 	if err != nil {
-		log.Printf("Error updating student with ID %s: %v", id, err)
+		log.Printf("Error updating student with ID %s: %v", studentId, err)
 		common.AbortWithError(c, err)
 		return
 	}
 
-	log.Printf("Student updated successfully with ID: %s", id)
+	log.Printf("Student updated successfully with ID: %s", studentId)
 	c.JSON(http.StatusOK, common.Response{
 		Code:    200,
 		Message: "Student updated successfully",
@@ -84,12 +84,12 @@ func (h *Handler) DeleteStudentByID(c *gin.Context) {
 	studentID := c.Param("id")
 	err := h.Service.Student.DeleteStudentByID(c.Request.Context(), profile.Id, studentID)
 	if err != nil {
-		log.Printf("Error deleting student with ID %s: %v", id, err)
+		log.Printf("Error deleting student with ID %s: %v", studentID, err)
 		common.AbortWithError(c, err)
 		return
 	}
 
-	log.Printf("Student deleted successfully with ID: %s", id)
+	log.Printf("Student deleted successfully with ID: %s", studentID)
 	c.JSON(http.StatusOK, common.Response{
 		Code:    200,
 		Message: "Student deleted successfully",
@@ -141,17 +141,55 @@ func (h *Handler) ImportStudentsFromFile(c *gin.Context) {
 }
 
 func (h *Handler) ExportStudentsToFile(c *gin.Context) {
-	downloadURL, err := h.Service.Student.ExportStudentsToCSV(c.Request.Context())
-	if err != nil {
-		common.AbortWithError(c, err)
+	// Parse and validate query parameters
+	var req models.FileTypeQueryRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		common.AbortWithError(c, common.ErrInvalidInput)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Students exported successfully",
-		"data": gin.H{
-			"file_link": downloadURL,
-		},
-	})
+	if !req.IsValidFileType() {
+		common.AbortWithError(c, common.ErrInvalidFileFormat)
+		return
+	}
+
+	fileType := req.GetFileType()
+
+	var data []byte
+	var exportErr error
+
+	if fileType == "json" {
+		data, exportErr = h.Service.Student.ExportStudentsToJSON(c.Request.Context())
+		if exportErr != nil {
+			common.AbortWithError(c, exportErr)
+			return
+		}
+
+		filename := "students-export.json"
+		c.Header("Content-Description", "File Transfer")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+		c.Header("Content-Type", "application/json")
+		c.Header("Content-Length", fmt.Sprintf("%d", len(data)))
+		c.Header("Expires", "0")
+		c.Header("Cache-Control", "must-revalidate")
+		c.Header("Pragma", "public")
+		c.Data(http.StatusOK, "application/json", data)
+	} else {
+		data, exportErr = h.Service.Student.ExportStudentsToCSV(c.Request.Context())
+		if exportErr != nil {
+			common.AbortWithError(c, exportErr)
+			return
+		}
+
+		filename := "students-export.csv"
+		c.Header("Content-Description", "File Transfer")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+		c.Header("Content-Type", "text/csv")
+		c.Header("Content-Length", fmt.Sprintf("%d", len(data)))
+		c.Header("Content-Transfer-Encoding", "binary")
+		c.Header("Expires", "0")
+		c.Header("Cache-Control", "must-revalidate")
+		c.Header("Pragma", "public")
+		c.Data(http.StatusOK, "text/csv", data)
+	}
 }

@@ -8,10 +8,9 @@ import (
 	"context"
 )
 
-
 type Service interface {
-	GetStatuses(ctx context.Context,  req *models.ListStudentStatusRequest) ([]*models.StudentStatus, error)
-	CreateStudentStatus(ctx context.Context, studentStatus *models.CreateStudentStatusRequest) ( error)
+	GetStatuses(ctx context.Context, req *models.ListStudentStatusRequest) ([]*models.StudentStatus, error)
+	CreateStudentStatus(ctx context.Context, studentStatus *models.CreateStudentStatusRequest) error
 	UpdateStudentStatus(ctx context.Context, id string, req *models.UpdateStudentStatusRequest) (*models.StudentStatus, error)
 	DeleteStudentStatus(ctx context.Context, id string) error
 }
@@ -31,14 +30,13 @@ func (s *studentStatusService) GetStatuses(ctx context.Context, req *models.List
 
 	sort := common.ParseSortString(req.Sort)
 
-	
 	// Gọi repository với query params đã có sort
-	studentStatus, err := s.studentStatusRepo.List(ctx,  models2.QueryParams{
+	studentStatus, err := s.studentStatusRepo.List(ctx, models2.QueryParams{
 		QuerySort: models2.QuerySort{
-			Sort: sort,  
+			Sort: sort,
 		},
 	},
-)
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -46,25 +44,24 @@ func (s *studentStatusService) GetStatuses(ctx context.Context, req *models.List
 	return studentStatus, nil
 }
 
-
-func (s *studentStatusService) CreateStudentStatus(ctx context.Context, req *models.CreateStudentStatusRequest) ( error) {
+func (s *studentStatusService) CreateStudentStatus(ctx context.Context, req *models.CreateStudentStatusRequest) error {
 
 	studentStatus := &models.StudentStatus{
 		Name: req.Name,
 	}
 
-	 err := s.studentStatusRepo.Create(ctx, studentStatus)
+	_, err := s.studentStatusRepo.Create(ctx, studentStatus)
 	if err != nil {
-		return  err
+		return err
 	}
-	return  nil
+	return nil
 }
 
-func (s *studentStatusService) UpdateStudentStatus(ctx context.Context,id string, req *models.UpdateStudentStatusRequest) (*models.StudentStatus, error) {
+func (s *studentStatusService) UpdateStudentStatus(ctx context.Context, id string, req *models.UpdateStudentStatusRequest) (*models.StudentStatus, error) {
 	studentStatus := &models.StudentStatus{
 		Name: req.Name,
 	}
-	updatedStudentStatus, err := s.studentStatusRepo.Update(ctx,id, studentStatus)
+	updatedStudentStatus, err := s.studentStatusRepo.Update(ctx, id, studentStatus)
 	if err != nil {
 		return nil, err
 	}

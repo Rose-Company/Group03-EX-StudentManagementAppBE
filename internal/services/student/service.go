@@ -5,11 +5,12 @@ import (
 	models2 "Group03-EX-StudentManagementAppBE/internal/models"
 	admin_models "Group03-EX-StudentManagementAppBE/internal/models/admin"
 	models "Group03-EX-StudentManagementAppBE/internal/models/student"
+	student_status_models "Group03-EX-StudentManagementAppBE/internal/models/student_status"
 	"Group03-EX-StudentManagementAppBE/internal/repositories"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
 	student_addresses "Group03-EX-StudentManagementAppBE/internal/repositories/student_addresses"
 	student_identity_documents "Group03-EX-StudentManagementAppBE/internal/repositories/student_documents"
-	"Group03-EX-StudentManagementAppBE/internal/repositories/student_status"
+	student_status "Group03-EX-StudentManagementAppBE/internal/repositories/student_status"
 	"Group03-EX-StudentManagementAppBE/internal/services/gdrive"
 	"bytes"
 	"context"
@@ -37,9 +38,13 @@ type Service interface {
 	CreateAStudent(ctx context.Context, userID string, req *models.CreateStudentRequest) error
 	UpdateStudent(ctx context.Context, userID string, studentId string, req *models.UpdateStudentRequest) error
 	DeleteStudentByID(ctx context.Context, userID string, studentID string) error
-	GetStudentStatuses(ctx context.Context) ([]*models.StudentStatus, error)
+	GetStudentStatuses(ctx context.Context, req *student_status_models.ListStudentStatusRequest) ([]*models.StudentStatus, error)
+	CreateStudentStatus(ctx context.Context, studentStatus *student_status_models.CreateStudentStatusRequest) error
+	UpdateStudentStatus(ctx context.Context, id string, req *student_status_models.UpdateStudentStatusRequest) (*models.StudentStatus, error)
+	DeleteStudentStatus(ctx context.Context, id string) error
 	ImportStudentsFromFile(ctx context.Context, userID string, fileURL string) (*admin_models.ImportResult, error)
-	ExportStudentsToCSV(ctx context.Context) (string, error)
+	ExportStudentsToCSV(ctx context.Context) ([]byte, error)
+	ExportStudentsToJSON(ctx context.Context) ([]byte, error)
 }
 
 type studentService struct {
@@ -214,7 +219,7 @@ func (s *studentService) CreateAStudent(ctx context.Context, userID string, requ
 				City:        addr.City,
 				Country:     addr.Country,
 			}
-			_, err := s.studentAddressRepo.Create(ctx, studentAddr)
+			createdStudent, err := s.studentAddressRepo.Create(ctx, studentAddr)
 			if err != nil {
 				logger.Error("Failed to create student address", log.Fields{
 					"error":        err.Error(),
@@ -397,14 +402,78 @@ func (s *studentService) DeleteStudentByID(ctx context.Context, userID string, s
 	return nil
 }
 
-func (s *studentService) GetStudentStatuses(ctx context.Context) ([]*models.StudentStatus, error) {
-	studentStatus, err := s.studentStatusRepo.List(ctx, models2.QueryParams{}, func(tx *gorm.DB) {
+func (s *studentService) GetStudentStatuses(ctx context.Context, req *student_status_models.ListStudentStatusRequest) ([]*models.StudentStatus, error) {
 
-	})
+	// Pass any filter conditions if needed
+	var clauses []repositories.Clause
+	if req.Name != "" {
+		clauses = append(clauses, func(tx *gorm.DB) {
+			tx.Where("LOWER(name) LIKE LOWER(?)", "%"+req.Name+"%")
+		})
+	}
+
+	if req.Sort == "" {
+		clauses = append(clauses, func(tx *gorm.DB) {
+			tx.Order("name ASC")
+		})
+	}
+
+	// Combine clauses
+	combinedClause := func(tx *gorm.DB) {
+		for _, clause := range clauses {
+			clause(tx)
+		}
+	}
+
+	// Query with proper parameters
+	studentStatus, err := s.studentStatusRepo.List(ctx, models2.QueryParams{}, combinedClause)
+	if err != nil {
+		log.WithError(err).Error("Failed to retrieve student statuses")
+		return nil, err
+	}
+
+	// Map studentStatus to the expected type
+	var result []*models.StudentStatus
+	for _, status := range studentStatus {
+		result = append(result, &models.StudentStatus{
+			ID:   status.ID,
+			Name: status.Name,
+		})
+	}
+	return result, nil
+}
+func (s *studentService) CreateStudentStatus(ctx context.Context, req *student_status_models.CreateStudentStatusRequest) error {
+
+	studentStatus := &student_status_models.StudentStatus{
+		Name: req.Name,
+	}
+
+	_, err := s.studentStatusRepo.Create(ctx, studentStatus)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *studentService) UpdateStudentStatus(ctx context.Context, id string, req *student_status_models.UpdateStudentStatusRequest) (*models.StudentStatus, error) {
+	studentStatus := &models.StudentStatus{
+		Name: req.Name,
+	}
+	convertedStudentStatus := &student_status_models.StudentStatus{
+		Name: studentStatus.Name,
+	}
+	updatedStudentStatus, err := s.studentStatusRepo.Update(ctx, id, convertedStudentStatus)
 	if err != nil {
 		return nil, err
 	}
-	return studentStatus, nil
+	return &models.StudentStatus{
+		ID:   updatedStudentStatus.ID,
+		Name: updatedStudentStatus.Name,
+	}, nil
+}
+
+func (s *studentService) DeleteStudentStatus(ctx context.Context, id string) error {
+	return s.studentStatusRepo.DeleteByID(ctx, id)
 }
 
 // Main import function that handles different file types
@@ -1485,7 +1554,6 @@ func (s *studentService) createStudentRequestFromJSON(data map[string]interface{
 	return req, nil
 }
 
-// customMultipartFile implements multipart.File using a bytes.Reader
 type customMultipartFile struct {
 	reader *bytes.Reader
 	size   int64
@@ -1504,42 +1572,33 @@ func (f *customMultipartFile) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (f *customMultipartFile) Close() error {
-	// Nothing to close for a bytes.Reader
 	return nil
 }
 
-// customFileHeader extends multipart.FileHeader with a custom Open method
 type customFileHeader struct {
 	*multipart.FileHeader
 	openFunc func() (multipart.File, error)
 }
 
-// Open implements the Open method for the custom file header
 func (cfh *customFileHeader) Open() (multipart.File, error) {
 	return cfh.openFunc()
 }
 
-func (s *studentService) ExportStudentsToCSV(ctx context.Context) (string, error) {
+// ExportStudentsToCSV exports student data as CSV
+func (s *studentService) ExportStudentsToCSV(ctx context.Context) ([]byte, error) {
 	logger := log.WithContext(ctx).WithFields(log.Fields{
 		"function": "ExportStudentsToCSV",
+		"format":   "CSV",
 	})
 	logger.Info("Starting student export to CSV")
 
-	// Get all students from the database with associated faculty names
-	students, err := s.studentRepo.List(ctx, models2.QueryParams{
-		Limit: -1, // Get all students
-	}, func(tx *gorm.DB) {
-		tx.Joins(`LEFT JOIN "PUBLIC"."faculties" ON students.faculty_id = "PUBLIC"."faculties".id`)
-		tx.Select(`students.*, "PUBLIC"."faculties".name as faculty_name`)
-		tx.Preload("Addresses") // Preload addresses
-	})
-
+	// Get students from the database
+	students, err := s.fetchStudentsWithDetails(ctx)
 	if err != nil {
-		logger.WithError(err).Error("Failed to retrieve students from database")
-		return "", fmt.Errorf("failed to retrieve students: %w", err)
+		return nil, err
 	}
 
-	// Create a buffer to hold the CSV data in memory
+	// Create a buffer to hold the CSV data
 	var csvBuffer bytes.Buffer
 	writer := csv.NewWriter(&csvBuffer)
 
@@ -1551,43 +1610,19 @@ func (s *studentService) ExportStudentsToCSV(ctx context.Context) (string, error
 	}
 	if err := writer.Write(header); err != nil {
 		logger.WithError(err).Error("Failed to write CSV header")
-		return "", fmt.Errorf("failed to write CSV header: %w", err)
+		return nil, fmt.Errorf("failed to write CSV header: %w", err)
 	}
 
 	// Loop through students and write each as a row
 	for _, student := range students {
-		permanentAddress := ""
-		temporaryAddress := ""
+		// Format addresses
+		permanentAddress, temporaryAddress := s.formatStudentAddresses(student)
 
-		// Get addresses if available
-		if student.Addresses != nil {
-			for _, addr := range student.Addresses {
-				addrStr := fmt.Sprintf("%s, %s, %s, %s, %s",
-					addr.Street, addr.Ward, addr.District, addr.City, addr.Country)
-
-				if addr.AddressType == "Permanent" {
-					permanentAddress = addrStr
-				} else if addr.AddressType == "Temporary" {
-					temporaryAddress = addrStr
-				}
-			}
-		}
-
-		// Get faculty ID and name
-		facultyID := 0
-		if student.FacultyID != 0 {
-			facultyID = student.FacultyID
-		}
+		// Get faculty information
+		facultyID, facultyName := s.getStudentFacultyInfo(student)
 
 		// Get status name
-		statusName := "Active" // Default
-		if student.StatusID != 1 {
-			// Optionally, get the actual status name from the database
-			status, err := s.studentStatusRepo.GetByID(ctx, fmt.Sprintf("%d", student.StatusID))
-			if err == nil && status != nil {
-				statusName = status.Name
-			}
-		}
+		statusName := s.getStudentStatusName(ctx, student)
 
 		// Format the date of birth
 		dob := ""
@@ -1603,6 +1638,7 @@ func (s *studentService) ExportStudentsToCSV(ctx context.Context) (string, error
 			dob,
 			student.Gender,
 			fmt.Sprintf("%d", facultyID),
+			facultyName,
 			student.Batch,
 			student.Program,
 			student.Address,
@@ -1623,43 +1659,170 @@ func (s *studentService) ExportStudentsToCSV(ctx context.Context) (string, error
 	writer.Flush()
 	if err := writer.Error(); err != nil {
 		logger.WithError(err).Error("Error flushing CSV data")
-		return "", fmt.Errorf("error flushing CSV data: %w", err)
+		return nil, fmt.Errorf("error flushing CSV data: %w", err)
 	}
 
 	// Get the CSV data as bytes
 	csvData := csvBuffer.Bytes()
 	logger.WithField("csvSize", len(csvData)).Info("Generated CSV data in memory")
 
-	// Create a custom implementation of multipart.File using a bytes.Reader
-	csvFile := &customMultipartFile{
-		reader: bytes.NewReader(csvData),
-		size:   int64(len(csvData)),
-	}
+	return csvData, nil
+}
 
-	// Create a multipart file header
-	fileHeader := &multipart.FileHeader{
-		Filename: "students-export.csv",
-		Size:     int64(len(csvData)),
-	}
+// ExportStudentsToJSON exports student data as JSON
+func (s *studentService) ExportStudentsToJSON(ctx context.Context) ([]byte, error) {
+	logger := log.WithContext(ctx).WithFields(log.Fields{
+		"function": "ExportStudentsToJSON",
+		"format":   "JSON",
+	})
+	logger.Info("Starting student export to JSON")
 
-	// Create the custom file header with our overridden Open method
-	myHeader := &customFileHeader{
-		FileHeader: fileHeader,
-		openFunc: func() (multipart.File, error) {
-			return csvFile, nil
-		},
-	}
-
-	// Upload the file to Google Drive using the gdrive service
-	driveFileInfo, err := s.driveService.UploadFile(ctx, myHeader.FileHeader, "students-export.csv")
+	// Get students from the database
+	students, err := s.fetchStudentsWithDetails(ctx)
 	if err != nil {
-		logger.WithError(err).Error("Failed to upload CSV to Google Drive")
-		return "", fmt.Errorf("failed to upload to Google Drive: %w", err)
+		return nil, err
 	}
 
-	// Get the download URL from the drive file info
-	downloadURL := driveFileInfo.DownloadURL
-	logger.WithField("downloadURL", downloadURL).Info("Successfully exported students to CSV")
+	// Create a slice to hold the student data in a format suitable for JSON
+	type StudentExport struct {
+		StudentCode      int    `json:"student_code"`
+		FullName         string `json:"full_name"`
+		Email            string `json:"email"`
+		DateOfBirth      string `json:"date_of_birth"`
+		Gender           string `json:"gender"`
+		FacultyID        int    `json:"faculty_id"`
+		FacultyName      string `json:"faculty_name"`
+		Batch            string `json:"batch"`
+		Program          string `json:"program"`
+		Address          string `json:"address"`
+		Phone            string `json:"phone"`
+		Status           string `json:"status"`
+		Nationality      string `json:"nationality"`
+		PermanentAddress string `json:"permanent_address"`
+		TemporaryAddress string `json:"temporary_address"`
+	}
 
-	return downloadURL, nil
+	var studentsData []StudentExport
+
+	// Format each student's data
+	for _, student := range students {
+		// Format addresses
+		permanentAddress, temporaryAddress := s.formatStudentAddresses(student)
+
+		// Get faculty information
+		facultyID, facultyName := s.getStudentFacultyInfo(student)
+
+		// Get status name
+		statusName := s.getStudentStatusName(ctx, student)
+
+		// Format the date of birth
+		dob := ""
+		if !student.DateOfBirth.IsZero() {
+			dob = student.DateOfBirth.Format("2006-01-02")
+		}
+
+		// Add student data to the slice
+		studentsData = append(studentsData, StudentExport{
+			StudentCode:      student.StudentCode,
+			FullName:         student.Fullname,
+			Email:            student.Email,
+			DateOfBirth:      dob,
+			Gender:           student.Gender,
+			FacultyID:        facultyID,
+			FacultyName:      facultyName,
+			Batch:            student.Batch,
+			Program:          student.Program,
+			Address:          student.Address,
+			Phone:            student.Phone,
+			Status:           statusName,
+			Nationality:      student.Nationality,
+			PermanentAddress: permanentAddress,
+			TemporaryAddress: temporaryAddress,
+		})
+	}
+
+	// Create the response structure
+	response := map[string]interface{}{
+		"success": true,
+		"data":    studentsData,
+	}
+
+	// Convert to JSON
+	jsonData, err := json.Marshal(response)
+	if err != nil {
+		logger.WithError(err).Error("Failed to marshal JSON data")
+		return nil, fmt.Errorf("failed to marshal JSON data: %w", err)
+	}
+
+	logger.WithField("jsonSize", len(jsonData)).Info("Generated JSON data in memory")
+	return jsonData, nil
+}
+
+// Helper functions to reduce code duplication
+
+// fetchStudentsWithDetails gets all students with their related data
+func (s *studentService) fetchStudentsWithDetails(ctx context.Context) ([]*models.Student, error) {
+	logger := log.WithContext(ctx)
+
+	students, err := s.studentRepo.List(ctx, models2.QueryParams{
+		Limit: -1, // Get all students
+	}, func(tx *gorm.DB) {
+		tx.Joins(`LEFT JOIN "PUBLIC"."faculties" ON students.faculty_id = "PUBLIC"."faculties".id`)
+		tx.Select(`students.*, "PUBLIC"."faculties".name as faculty_name`)
+		tx.Preload("Addresses") // Preload addresses
+	})
+
+	if err != nil {
+		logger.WithError(err).Error("Failed to retrieve students from database")
+		return nil, fmt.Errorf("failed to retrieve students: %w", err)
+	}
+
+	return students, nil
+}
+
+// formatStudentAddresses extracts permanent and temporary addresses
+func (s *studentService) formatStudentAddresses(student *models.Student) (string, string) {
+	permanentAddress := ""
+	temporaryAddress := ""
+
+	if student.Addresses != nil {
+		for _, addr := range student.Addresses {
+			addrStr := fmt.Sprintf("%s, %s, %s, %s, %s",
+				addr.Street, addr.Ward, addr.District, addr.City, addr.Country)
+
+			if addr.AddressType == "Permanent" {
+				permanentAddress = addrStr
+			} else if addr.AddressType == "Temporary" {
+				temporaryAddress = addrStr
+			}
+		}
+	}
+
+	return permanentAddress, temporaryAddress
+}
+
+// getStudentFacultyInfo extracts faculty ID and name
+func (s *studentService) getStudentFacultyInfo(student *models.Student) (int, string) {
+	facultyID := 0
+	if student.FacultyID != 0 {
+		facultyID = student.FacultyID
+	}
+
+	facultyName := student.FacultyName
+	if facultyName == "" {
+		facultyName = "Unknown" // Default if not available
+	}
+
+	return facultyID, facultyName
+}
+
+func (s *studentService) getStudentStatusName(ctx context.Context, student *models.Student) string {
+	statusName := "Active"
+	if student.StatusID != 1 {
+		status, err := s.studentStatusRepo.GetByID(ctx, fmt.Sprintf("%d", student.StatusID))
+		if err == nil && status != nil {
+			statusName = status.Name
+		}
+	}
+	return statusName
 }

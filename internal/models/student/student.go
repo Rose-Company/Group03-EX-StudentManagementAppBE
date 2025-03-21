@@ -27,6 +27,7 @@ type Student struct {
 	UpdatedAt   time.Time          `json:"updated_at" gorm:"type:timestamptz;default:CURRENT_TIMESTAMP"`
 	ProgramID   int                `json:"program_id" gorm:"type:integer;references:programs(id)"`
 	Nationality string             `json:"nationality" gorm:"type:text"`
+	FacultyName string             `json:"faculty_name,omitempty" gorm:"-"`
 }
 
 func (s *Student) TableName() string {
@@ -234,14 +235,6 @@ func (s *Student) ToResponse() *StudentResponse {
 	return response
 }
 
-type ListStudentRequest struct {
-	models.BaseRequestParamsUri
-	StudentCode string `form:"student_code"`
-	Fullname    string `form:"fullname"`
-	Sort        string `form:"sort"` 
-}
-
-=======
 // ToListResponse for simplified list view
 func (s *Student) ToListResponse() *StudentListResponse {
 	return &StudentListResponse{
@@ -334,4 +327,3 @@ type CreateStudentRequest StudentRequest
 // UpdateStudentRequest for student update API - same as StudentRequest
 // But when handling in the service, only update fields that are provided
 type UpdateStudentRequest StudentRequest
-

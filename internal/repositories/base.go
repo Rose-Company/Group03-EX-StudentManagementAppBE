@@ -18,7 +18,7 @@ type BaseRepository[M Model] interface {
 	List(ctx context.Context, params models.QueryParams, clauses ...Clause) ([]*M, error)
 	GetByID(ctx context.Context, id interface{}) (*M, error)
 	Count(ctx context.Context, params models.QueryParams, clauses ...Clause) (int64, error)
-	Create(ctx context.Context, o *M) ( error)
+	Create(ctx context.Context, o *M) (*M, error)
 	Update(ctx context.Context, id interface{}, o *M, clauses ...Clause) (*M, error)
 	UpdateColumns(ctx context.Context, id interface{}, columns map[string]interface{}, clauses ...Clause) (*M, error)
 	GetByIDSelected(ctx context.Context, id interface{}, fields []string) (data *M, err error)
@@ -78,8 +78,6 @@ func (b *baseRepository[M]) List(ctx context.Context, params models.QueryParams,
 	return oList, nil
 }
 
-
-
 func (b *baseRepository[M]) Count(ctx context.Context, params models.QueryParams, clauses ...Clause) (int64, error) {
 	var count int64
 	tx := b.db.Model(b.model)
@@ -104,13 +102,13 @@ func (b *baseRepository[M]) GetByID(ctx context.Context, id interface{}) (*M, er
 	return o, nil
 }
 
-func (b *baseRepository[M]) Create(ctx context.Context, o *M) ( error) {
+func (b *baseRepository[M]) Create(ctx context.Context, o *M) (*M, error) {
 	err := b.db.Model(b.model).Create(o).Error
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return  nil
+	return o, nil
 }
 
 func (b *baseRepository[M]) Update(ctx context.Context, id interface{}, o *M, clauses ...Clause) (*M, error) {
