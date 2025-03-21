@@ -1,11 +1,28 @@
-# Student Management Application
+# Student Management Application V2.0
 
 A clean architecture-based REST API for student management system developed in Go.
+
+## 📌 Tính năng chính
+
+✅ Xác thực & phân quyền người dùng (Admin & Student)  
+✅ Quản lý thông tin sinh viên  
+✅ Quản lý giảng viên & khoa  
+✅ API RESTful theo tiêu chuẩn  
+✅ JWT Authentication  
+✅ Kết nối PostgreSQL  
+✅ Hỗ trợ logging mechanism 
+
+- Logging: ![Mô tả ảnh](https://drive.google.com/uc?export=view&id=1zCnBiLaXG0_FXsMJADCTP6QotH2f5O7v)
+- Database: ![Mô tả ảnh](https://drive.google.com/uc?export=view&id=1BWt2RhYNFv75lJ-AtvPTgho0oXOA_Z55)
+- Các API quản lý thông tin: https://drive.google.com/file/d/1fItGjQCD1uWGDPYSrl6-TAjpGQg7c_pw/view?usp=sharing
 
 ## Cấu trúc source code
 
 ```
 GROUP03-EX-STUDENTMANAGEMENTAPPBE/
+├── cmd/                    # Command-line application entry points
+│   ├── root.go             # Root command entry point
+│   └── server.go           # Server command implementation
 ├── common/                 # Common utilities and helpers
 │   ├── common.go           # Shared functions
 │   ├── db.go               # Database connection utilities
@@ -23,34 +40,71 @@ GROUP03-EX-STUDENTMANAGEMENTAPPBE/
 │   └── config.yaml         # Application configuration
 ├── internal/               # Core application code
 │   ├── app/                # Application setup and initialization
+│   │   └── app.go          # Main application bootstrap
 │   ├── handlers/           # HTTP request handlers (API Layer)
+│   │   ├── admin/          # Admin-related handlers
+│   │   │   └── handler.go  # Admin handler implementation
 │   │   ├── auth/           # Authentication handlers
-│   │   │   ├── auth_handler.go
-│   │   │   └── login.go
+│   │   │   ├── handler.go  # Auth handler implementation
+│   │   │   └── login.go    # Login functionality
 │   │   ├── faculty/        # Faculty-related handlers
+│   │   │   ├── faculty_crud.go # Faculty CRUD operations
+│   │   │   └── handler.go  # Faculty handler implementation
+│   │   ├── program/        # Program-related handlers
 │   │   ├── student/        # Student-related handlers
+│   │   │   ├── handler.go         # Main student handler
+│   │   │   ├── student_edit.go    # Student edit operations
+│   │   │   ├── student_info.go    # Student info operations
+│   │   │   ├── student_list.go    # Student listing operations
+│   │   │   └── student_statuses.go # Student status operations
 │   │   └── base.go         # Base handler functionality
 │   ├── models/             # Data models (Domain Layer)
+│   │   ├── admin/          # Admin models
+│   │   │   └── file.go     # File model for admin operations
 │   │   ├── auth/           # Authentication models
 │   │   ├── faculty/        # Faculty models
+│   │   ├── gdrive/         # Google Drive integration models
+│   │   ├── program/        # Program models
 │   │   ├── student/        # Student models
+│   │   ├── student_status/ # Student status models
 │   │   └── base.go         # Base model functionality
 │   ├── repositories/       # Data access layer (Repository Layer)
+│   │   ├── admin/          # Admin repository
 │   │   ├── faculty/        # Faculty repository
+│   │   │   └── repository.go # Faculty repository implementation
+│   │   ├── program/        # Program repository
+│   │   │   └── repository.go # Program repository implementation
 │   │   ├── student/        # Student repository
-│   │   ├── student_status/ # Student status repository 
-│   │   ├── user/           # User repository
+│   │   │   ├── repository.go    # Main student repository
+│   │   │   ├── student_addresses/  # Student addresses repository
+│   │   │   ├── student_documents/  # Student documents repository
+│   │   │   ├── student_status/ # Student status repository 
+│   │   │   └── user/       # User repository for students
 │   │   └── base.go         # Base repository functionality
 │   ├── services/           # Business logic (Service Layer)
 │   │   ├── auth/           # Authentication services
 │   │   ├── faculty/        # Faculty services
+│   │   ├── program/        # Program services
 │   │   ├── student/        # Student services
 │   │   └── base.go         # Base service functionality
-│   └── middleware/         # HTTP middleware
-│       ├── admin_authentication.go  # Admin auth middleware
-│       └── user_authentication.go   # User auth middleware
-└── script/                 # Database scripts
-    └── script.sql          # SQL initialization scripts
+│   ├── middleware/         # HTTP middleware
+│   │   ├── admin_authentication.go  # Admin auth middleware
+│   │   └── user_authentication.go   # User auth middleware
+│   └── keys/               # API Keys and credentials
+│       └── google_service_cre.json # Google API credentials
+├── pkg/                    # Public library code
+├── script/                 # Database scripts
+│   ├── hw2_init_data.sql   # Initial data setup
+│   ├── hw2.sql             # Homework 2 scripts
+│   └── script.sql          # Main SQL initialization scripts
+├── .env                    # Environment variables
+├── .gitignore              # Git ignore file
+├── docker-compose.yaml     # Docker composition for services
+├── go.mod                  # Go module definition
+├── go.sum                  # Go module checksums
+├── main.go                 # Main application entry point
+├── README.md               # Project documentation
+└── sample.env              # Sample environment configuration
 ```
 
 ## Hướng dẫn cài đặt & chạy chương trình
@@ -59,8 +113,38 @@ GROUP03-EX-STUDENTMANAGEMENTAPPBE/
 - Go 1.16 hoặc cao hơn
 - PostgreSQL (hoặc cơ sở dữ liệu được cấu hình trong config.yaml)
 - Git
+- Google Key Credentials
 
-### Cài đặt
+
+## Cấu hình Google Key Credentials
+
+### Truy cập Google Cloud Console
+👉 [Google Cloud Console](https://console.cloud.google.com/)
+
+### Tạo Dự án mới hoặc chọn dự án hiện có
+- Mở **Google Cloud Console** và đăng nhập.
+- Chọn **Create Project** để tạo dự án mới hoặc chọn một dự án có sẵn.
+
+### Kích hoạt API cần thiết
+- Điều hướng đến **APIs & Services** → **Library**.
+- Tìm kiếm và kích hoạt các API cần thiết (ví dụ: **Google OAuth**, **Drive API**...).
+
+### Tạo Key Credentials
+1. Điều hướng đến **APIs & Services** → **Credentials**.
+2. Chọn **Create Credentials** → **Service Account**.
+3. Nhập thông tin cần thiết và tạo **Service Account**.
+4. Chọn **Manage Keys** → **Add Key** → **Create New Key**.
+5. Chọn định dạng **JSON** và tải file xác thực về máy.
+
+📌 **Lưu ý:**  
+- File JSON chứa thông tin xác thực cần được bảo mật, không chia sẻ công khai.  
+- Cấu hình biến môi trường để ứng dụng sử dụng Google Key Credentials:
+  ```bash
+  export GOOGLE_DRIVE_CREDENTIALS_FILE="/path/to/your-google-key.json"
+  ```
+
+
+### Cài đặt Source cho V2.0
 
 1. Clone repository:
 ```bash
