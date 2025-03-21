@@ -10,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
 func (h *Handler) GetStudentStatuses(c *gin.Context) {
 	log.Println("Handling request: GetStudentStatuses - Fetching student statuses")
 
@@ -28,7 +27,7 @@ func (h *Handler) GetStudentStatuses(c *gin.Context) {
 		return
 	}
 
-	studentStatuses, err := h.Service.StudentStatus.GetStatuses(c, &req)
+	studentStatuses, err := h.Service.Student.GetStudentStatuses(c, &req)
 	if err != nil {
 		log.Printf("Error fetching student statuses: %v", err)
 		common.AbortWithError(c, err)
@@ -56,7 +55,7 @@ func (h *Handler) CreateStudentStatus(c *gin.Context) {
 		return
 	}
 
-	err := h.Service.StudentStatus.CreateStudentStatus(c.Request.Context(), &studentStatus)
+	err := h.Service.Student.CreateStudentStatus(c.Request.Context(), &studentStatus)
 	if err != nil {
 		log.Printf("Error creating student status: %v", err)
 		common.AbortWithError(c, err)
@@ -69,7 +68,6 @@ func (h *Handler) CreateStudentStatus(c *gin.Context) {
 		Message: "Student status created successfully",
 	})
 }
-
 
 func (h *Handler) UpdateStudentStatus(c *gin.Context) {
 	log.Println("Handling request: UpdateStudentStatus - Updating student status")
@@ -89,7 +87,7 @@ func (h *Handler) UpdateStudentStatus(c *gin.Context) {
 		return
 	}
 
-	updatedStudentStatus, err := h.Service.StudentStatus.UpdateStudentStatus(c.Request.Context(), id, &studentStatus)
+	updatedStudentStatus, err := h.Service.Student.UpdateStudentStatus(c.Request.Context(), id, &studentStatus)
 	if err != nil {
 		log.Printf("Error updating student status with ID %s: %v", id, err)
 		common.AbortWithError(c, err)
@@ -126,7 +124,7 @@ func (h *Handler) DeleteStudentStatus(c *gin.Context) {
 
 	log.Printf("Attempting to delete student status with ID: %s", id)
 
-	err := h.Service.StudentStatus.DeleteStudentStatus(c.Request.Context(), id)
+	err := h.Service.Student.DeleteStudentStatus(c.Request.Context(), id)
 	if err != nil {
 		log.Printf("Error deleting student status with ID %s: %v", id, err)
 		common.AbortWithError(c, err)

@@ -3,6 +3,7 @@ package student
 import (
 	"Group03-EX-StudentManagementAppBE/common"
 	models "Group03-EX-StudentManagementAppBE/internal/models/student"
+	"fmt"
 	"net/http"
 
 	"log"
@@ -25,7 +26,6 @@ func (h *Handler) CreateStudent(c *gin.Context) {
 		return
 	}
 
-
 	err := h.Service.Student.CreateAStudent(c.Request.Context(), profile.Id, &createReq)
 	if err != nil {
 		log.Printf("Error creating student: %v", err)
@@ -42,7 +42,7 @@ func (h *Handler) CreateStudent(c *gin.Context) {
 
 func (h *Handler) UpdateStudent(c *gin.Context) {
 	log.Println("Handling request: UpdateStudent - Updating student")
-  
+
 	ok, profile := common.ProfileFromJwt(c)
 	if !ok {
 		log.Println("Unauthorized access attempt in UpdateStudent")
@@ -50,10 +50,9 @@ func (h *Handler) UpdateStudent(c *gin.Context) {
 		return
 	}
 
-
 	studentId := c.Param("id")
 	fmt.Println(studentId)
-  
+
 	var updateReq models.UpdateStudentRequest
 	if err := c.ShouldBindJSON(&updateReq); err != nil {
 		common.AbortWithError(c, common.ErrInvalidInput)
@@ -61,12 +60,12 @@ func (h *Handler) UpdateStudent(c *gin.Context) {
 	}
 	err := h.Service.Student.UpdateStudent(c.Request.Context(), profile.Id, studentId, &updateReq)
 	if err != nil {
-		log.Printf("Error updating student with ID %s: %v", id, err)
+		log.Printf("Error updating student with ID %s: %v", studentId, err)
 		common.AbortWithError(c, err)
 		return
 	}
 
-	log.Printf("Student updated successfully with ID: %s", id)
+	log.Printf("Student updated successfully with ID: %s", studentId)
 	c.JSON(http.StatusOK, common.Response{
 		Code:    200,
 		Message: "Student updated successfully",
@@ -84,12 +83,12 @@ func (h *Handler) DeleteStudentByID(c *gin.Context) {
 	studentID := c.Param("id")
 	err := h.Service.Student.DeleteStudentByID(c.Request.Context(), profile.Id, studentID)
 	if err != nil {
-		log.Printf("Error deleting student with ID %s: %v", id, err)
+		log.Printf("Error deleting student with ID %s: %v", studentID, err)
 		common.AbortWithError(c, err)
 		return
 	}
 
-	log.Printf("Student deleted successfully with ID: %s", id)
+	log.Printf("Student deleted successfully with ID: %s", studentID)
 	c.JSON(http.StatusOK, common.Response{
 		Code:    200,
 		Message: "Student deleted successfully",

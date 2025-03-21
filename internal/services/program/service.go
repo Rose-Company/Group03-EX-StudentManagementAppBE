@@ -36,6 +36,7 @@ func (s *service) ListPrograms(ctx context.Context, req *models_program.ListProg
 			Origin: req.Sort,
 		},
 	}
+
 	return s.programRepo.List(ctx, params)
 }
 

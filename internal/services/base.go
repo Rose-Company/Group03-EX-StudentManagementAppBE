@@ -40,7 +40,7 @@ func NewService(userRepo user.Repository,
 	studentDocumentRepo student_identity_documents.Repository,
 	adminRepo admin.Repository,
 	db *gorm.DB,
-	program program.Repository) *Service {
+	programRepo program.Repository) *Service {
 	// Load config for JWT secret
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -51,6 +51,7 @@ func NewService(userRepo user.Repository,
 	service := &Service{
 		Auth:    auth.NewAuthService(userRepo, cfg.JWTSecret),
 		Faculty: facultyService.NewFalcutyService(facultyRepo),
+		Program: programService.NewProgramService(programRepo),
 	}
 
 	// Initialize Google Drive service if credentials are configured
@@ -80,6 +81,7 @@ func NewService(userRepo user.Repository,
 		studentAddressRepo,
 		studentDocumentRepo,
 		driveSvc, // Pass the drive service here
+
 	)
 
 	return service

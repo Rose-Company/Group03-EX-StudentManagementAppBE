@@ -5,11 +5,12 @@ import (
 	models2 "Group03-EX-StudentManagementAppBE/internal/models"
 	admin_models "Group03-EX-StudentManagementAppBE/internal/models/admin"
 	models "Group03-EX-StudentManagementAppBE/internal/models/student"
+	student_status_models "Group03-EX-StudentManagementAppBE/internal/models/student_status"
 	"Group03-EX-StudentManagementAppBE/internal/repositories"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
 	student_addresses "Group03-EX-StudentManagementAppBE/internal/repositories/student_addresses"
 	student_identity_documents "Group03-EX-StudentManagementAppBE/internal/repositories/student_documents"
-	"Group03-EX-StudentManagementAppBE/internal/repositories/student_status"
+	student_status "Group03-EX-StudentManagementAppBE/internal/repositories/student_status"
 	"Group03-EX-StudentManagementAppBE/internal/services/gdrive"
 	"bytes"
 	"context"
@@ -37,7 +38,10 @@ type Service interface {
 	CreateAStudent(ctx context.Context, userID string, req *models.CreateStudentRequest) error
 	UpdateStudent(ctx context.Context, userID string, studentId string, req *models.UpdateStudentRequest) error
 	DeleteStudentByID(ctx context.Context, userID string, studentID string) error
-	GetStudentStatuses(ctx context.Context) ([]*models.StudentStatus, error)
+	GetStudentStatuses(ctx context.Context, req *student_status_models.ListStudentStatusRequest) ([]*models.StudentStatus, error)
+	CreateStudentStatus(ctx context.Context, studentStatus *student_status_models.CreateStudentStatusRequest) error
+	UpdateStudentStatus(ctx context.Context, id string, req *student_status_models.UpdateStudentStatusRequest) (*models.StudentStatus, error)
+	DeleteStudentStatus(ctx context.Context, id string) error
 	ImportStudentsFromFile(ctx context.Context, userID string, fileURL string) (*admin_models.ImportResult, error)
 	ExportStudentsToCSV(ctx context.Context) (string, error)
 }
@@ -214,7 +218,7 @@ func (s *studentService) CreateAStudent(ctx context.Context, userID string, requ
 				City:        addr.City,
 				Country:     addr.Country,
 			}
-			_, err := s.studentAddressRepo.Create(ctx, studentAddr)
+			createdStudent, err := s.studentAddressRepo.Create(ctx, studentAddr)
 			if err != nil {
 				logger.Error("Failed to create student address", log.Fields{
 					"error":        err.Error(),
@@ -397,14 +401,78 @@ func (s *studentService) DeleteStudentByID(ctx context.Context, userID string, s
 	return nil
 }
 
-func (s *studentService) GetStudentStatuses(ctx context.Context) ([]*models.StudentStatus, error) {
-	studentStatus, err := s.studentStatusRepo.List(ctx, models2.QueryParams{}, func(tx *gorm.DB) {
+func (s *studentService) GetStudentStatuses(ctx context.Context, req *student_status_models.ListStudentStatusRequest) ([]*models.StudentStatus, error) {
 
-	})
+	// Pass any filter conditions if needed
+	var clauses []repositories.Clause
+	if req.Name != "" {
+		clauses = append(clauses, func(tx *gorm.DB) {
+			tx.Where("LOWER(name) LIKE LOWER(?)", "%"+req.Name+"%")
+		})
+	}
+
+	if req.Sort == "" {
+		clauses = append(clauses, func(tx *gorm.DB) {
+			tx.Order("name ASC")
+		})
+	}
+
+	// Combine clauses
+	combinedClause := func(tx *gorm.DB) {
+		for _, clause := range clauses {
+			clause(tx)
+		}
+	}
+
+	// Query with proper parameters
+	studentStatus, err := s.studentStatusRepo.List(ctx, models2.QueryParams{}, combinedClause)
+	if err != nil {
+		log.WithError(err).Error("Failed to retrieve student statuses")
+		return nil, err
+	}
+
+	// Map studentStatus to the expected type
+	var result []*models.StudentStatus
+	for _, status := range studentStatus {
+		result = append(result, &models.StudentStatus{
+			ID:   status.ID,
+			Name: status.Name,
+		})
+	}
+	return result, nil
+}
+func (s *studentService) CreateStudentStatus(ctx context.Context, req *student_status_models.CreateStudentStatusRequest) error {
+
+	studentStatus := &student_status_models.StudentStatus{
+		Name: req.Name,
+	}
+
+	_, err := s.studentStatusRepo.Create(ctx, studentStatus)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *studentService) UpdateStudentStatus(ctx context.Context, id string, req *student_status_models.UpdateStudentStatusRequest) (*models.StudentStatus, error) {
+	studentStatus := &models.StudentStatus{
+		Name: req.Name,
+	}
+	convertedStudentStatus := &student_status_models.StudentStatus{
+		Name: studentStatus.Name,
+	}
+	updatedStudentStatus, err := s.studentStatusRepo.Update(ctx, id, convertedStudentStatus)
 	if err != nil {
 		return nil, err
 	}
-	return studentStatus, nil
+	return &models.StudentStatus{
+		ID:   updatedStudentStatus.ID,
+		Name: updatedStudentStatus.Name,
+	}, nil
+}
+
+func (s *studentService) DeleteStudentStatus(ctx context.Context, id string) error {
+	return s.studentStatusRepo.DeleteByID(ctx, id)
 }
 
 // Main import function that handles different file types
