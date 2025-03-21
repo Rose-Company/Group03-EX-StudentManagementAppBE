@@ -2,7 +2,8 @@ package student
 
 import (
 	"Group03-EX-StudentManagementAppBE/common"
-	models "Group03-EX-StudentManagementAppBE/internal/models/student"
+	"Group03-EX-StudentManagementAppBE/internal/models"
+	student_models "Group03-EX-StudentManagementAppBE/internal/models/student"
 	"fmt"
 	"net/http"
 
@@ -20,7 +21,7 @@ func (h *Handler) CreateStudent(c *gin.Context) {
 		return
 	}
 
-	var createReq models.CreateStudentRequest
+	var createReq student_models.CreateStudentRequest
 	if err := c.ShouldBindJSON(&createReq); err != nil {
 		common.AbortWithError(c, common.ErrInvalidInput)
 		return
@@ -53,7 +54,7 @@ func (h *Handler) UpdateStudent(c *gin.Context) {
 	studentId := c.Param("id")
 	fmt.Println(studentId)
 
-	var updateReq models.UpdateStudentRequest
+	var updateReq student_models.UpdateStudentRequest
 	if err := c.ShouldBindJSON(&updateReq); err != nil {
 		common.AbortWithError(c, common.ErrInvalidInput)
 		return
@@ -140,17 +141,55 @@ func (h *Handler) ImportStudentsFromFile(c *gin.Context) {
 }
 
 func (h *Handler) ExportStudentsToFile(c *gin.Context) {
-	downloadURL, err := h.Service.Student.ExportStudentsToCSV(c.Request.Context())
-	if err != nil {
-		common.AbortWithError(c, err)
+	// Parse and validate query parameters
+	var req models.FileTypeQueryRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		common.AbortWithError(c, common.ErrInvalidInput)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Students exported successfully",
-		"data": gin.H{
-			"file_link": downloadURL,
-		},
-	})
+	if !req.IsValidFileType() {
+		common.AbortWithError(c, common.ErrInvalidFileFormat)
+		return
+	}
+
+	fileType := req.GetFileType()
+
+	var data []byte
+	var exportErr error
+
+	if fileType == "json" {
+		data, exportErr = h.Service.Student.ExportStudentsToJSON(c.Request.Context())
+		if exportErr != nil {
+			common.AbortWithError(c, exportErr)
+			return
+		}
+
+		filename := "students-export.json"
+		c.Header("Content-Description", "File Transfer")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+		c.Header("Content-Type", "application/json")
+		c.Header("Content-Length", fmt.Sprintf("%d", len(data)))
+		c.Header("Expires", "0")
+		c.Header("Cache-Control", "must-revalidate")
+		c.Header("Pragma", "public")
+		c.Data(http.StatusOK, "application/json", data)
+	} else {
+		data, exportErr = h.Service.Student.ExportStudentsToCSV(c.Request.Context())
+		if exportErr != nil {
+			common.AbortWithError(c, exportErr)
+			return
+		}
+
+		filename := "students-export.csv"
+		c.Header("Content-Description", "File Transfer")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+		c.Header("Content-Type", "text/csv")
+		c.Header("Content-Length", fmt.Sprintf("%d", len(data)))
+		c.Header("Content-Transfer-Encoding", "binary")
+		c.Header("Expires", "0")
+		c.Header("Cache-Control", "must-revalidate")
+		c.Header("Pragma", "public")
+		c.Data(http.StatusOK, "text/csv", data)
+	}
 }
