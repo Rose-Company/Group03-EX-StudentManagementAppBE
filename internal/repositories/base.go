@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"Group03-EX-StudentManagementAppBE/common"
-	"Group03-EX-StudentManagementAppBE/internal/models"
+	models "Group03-EX-StudentManagementAppBE/internal/models"
 	"context"
 
 	"gorm.io/gorm"
@@ -18,7 +18,7 @@ type BaseRepository[M Model] interface {
 	List(ctx context.Context, params models.QueryParams, clauses ...Clause) ([]*M, error)
 	GetByID(ctx context.Context, id interface{}) (*M, error)
 	Count(ctx context.Context, params models.QueryParams, clauses ...Clause) (int64, error)
-	Create(ctx context.Context, o *M) (*M, error)
+	Create(ctx context.Context, o *M) ( error)
 	Update(ctx context.Context, id interface{}, o *M, clauses ...Clause) (*M, error)
 	UpdateColumns(ctx context.Context, id interface{}, columns map[string]interface{}, clauses ...Clause) (*M, error)
 	GetByIDSelected(ctx context.Context, id interface{}, fields []string) (data *M, err error)
@@ -47,15 +47,15 @@ func NewBaseRepository[M Model](db *gorm.DB) BaseRepository[M] {
 
 func (b *baseRepository[M]) List(ctx context.Context, params models.QueryParams, clauses ...Clause) ([]*M, error) {
 	var oList []*M
-	tx := b.db.
-		Model(b.model).
-		Offset(params.Offset)
+	tx := b.db.Model(b.model).Offset(params.Offset)
 
 	if params.Limit > 0 {
 		tx = tx.Limit(params.Limit)
 	}
-	if len(params.QuerySort.Parse()) > 0 {
-		tx = tx.Order(params.QuerySort.Parse())
+
+	// Áp dụng sắp xếp dựa trên params.QuerySort.Sort
+	if params.QuerySort.Sort != "" {
+		tx = tx.Order(params.QuerySort.Sort)
 	}
 
 	if params.Selected != nil {
@@ -69,6 +69,7 @@ func (b *baseRepository[M]) List(ctx context.Context, params models.QueryParams,
 	for _, f := range clauses {
 		f(tx)
 	}
+
 	err := tx.Find(&oList).Error
 	if err != nil {
 		return nil, err
@@ -76,6 +77,8 @@ func (b *baseRepository[M]) List(ctx context.Context, params models.QueryParams,
 
 	return oList, nil
 }
+
+
 
 func (b *baseRepository[M]) Count(ctx context.Context, params models.QueryParams, clauses ...Clause) (int64, error) {
 	var count int64
@@ -101,13 +104,13 @@ func (b *baseRepository[M]) GetByID(ctx context.Context, id interface{}) (*M, er
 	return o, nil
 }
 
-func (b *baseRepository[M]) Create(ctx context.Context, o *M) (*M, error) {
+func (b *baseRepository[M]) Create(ctx context.Context, o *M) ( error) {
 	err := b.db.Model(b.model).Create(o).Error
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return o, nil
+	return  nil
 }
 
 func (b *baseRepository[M]) Update(ctx context.Context, id interface{}, o *M, clauses ...Clause) (*M, error) {

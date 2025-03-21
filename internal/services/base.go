@@ -4,6 +4,7 @@ import (
 	"Group03-EX-StudentManagementAppBE/config"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/admin"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/faculty"
+	"Group03-EX-StudentManagementAppBE/internal/repositories/program"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
 	student_addresses "Group03-EX-StudentManagementAppBE/internal/repositories/student_addresses"
 	student_identity_documents "Group03-EX-StudentManagementAppBE/internal/repositories/student_documents"
@@ -13,6 +14,7 @@ import (
 	"Group03-EX-StudentManagementAppBE/internal/services/auth"
 	facultyService "Group03-EX-StudentManagementAppBE/internal/services/faculty"
 	gdriveService "Group03-EX-StudentManagementAppBE/internal/services/gdrive"
+	programService "Group03-EX-StudentManagementAppBE/internal/services/program"
 	studentService "Group03-EX-StudentManagementAppBE/internal/services/student"
 
 	log "github.com/sirupsen/logrus"
@@ -24,14 +26,13 @@ type Service struct {
 	Auth    auth.Service
 	Student studentService.Service
 	Faculty facultyService.Service
+	Program programService.Service
 	GDrive  gdriveService.Service
 	Admin   adminService.Service
 }
 
 // NewService creates a new service container with all dependencies
-// NewService creates a new service container with all dependencies
-func NewService(
-	userRepo user.Repository,
+func NewService(userRepo user.Repository,
 	studentRepo student.Repository,
 	facultyRepo faculty.Repository,
 	studentStatusRepo student_status.Repository,
@@ -39,7 +40,7 @@ func NewService(
 	studentDocumentRepo student_identity_documents.Repository,
 	adminRepo admin.Repository,
 	db *gorm.DB,
-) *Service {
+	program program.Repository) *Service {
 	// Load config for JWT secret
 	cfg, err := config.LoadConfig()
 	if err != nil {
