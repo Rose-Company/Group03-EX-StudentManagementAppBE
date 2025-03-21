@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"Group03-EX-StudentManagementAppBE/common"
-	"Group03-EX-StudentManagementAppBE/internal/models"
+	models "Group03-EX-StudentManagementAppBE/internal/models"
 	"context"
 
 	"gorm.io/gorm"
@@ -47,15 +47,15 @@ func NewBaseRepository[M Model](db *gorm.DB) BaseRepository[M] {
 
 func (b *baseRepository[M]) List(ctx context.Context, params models.QueryParams, clauses ...Clause) ([]*M, error) {
 	var oList []*M
-	tx := b.db.
-		Model(b.model).
-		Offset(params.Offset)
+	tx := b.db.Model(b.model).Offset(params.Offset)
 
 	if params.Limit > 0 {
 		tx = tx.Limit(params.Limit)
 	}
-	if len(params.QuerySort.Parse()) > 0 {
-		tx = tx.Order(params.QuerySort.Parse())
+
+	// Áp dụng sắp xếp dựa trên params.QuerySort.Sort
+	if params.QuerySort.Sort != "" {
+		tx = tx.Order(params.QuerySort.Sort)
 	}
 
 	if params.Selected != nil {
@@ -69,6 +69,7 @@ func (b *baseRepository[M]) List(ctx context.Context, params models.QueryParams,
 	for _, f := range clauses {
 		f(tx)
 	}
+
 	err := tx.Find(&oList).Error
 	if err != nil {
 		return nil, err

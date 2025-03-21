@@ -21,11 +21,19 @@ func NewHandler(service *services.Service) *Handler {
 func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 	studentGroup := rg.Group("/v1/students")
 	{
-		studentGroup.GET("", middleware.UserAuthentication, h.GetStudentList)
 		studentGroup.DELETE("/:id", middleware.UserAuthentication, h.DeleteStudentByID)
 		studentGroup.POST("/create", middleware.UserAuthentication, h.CreateStudent)
-		studentGroup.PUT("/:id", middleware.UserAuthentication, h.UpdateStudent)
+		studentGroup.PATCH("/:id", middleware.UserAuthentication, h.UpdateStudent)
 		studentGroup.GET("/:id", middleware.UserAuthentication, h.GetStudentByID)
 		studentGroup.GET("/statuses", middleware.UserAuthentication, h.GetStudentStatuses)
+		studentGroup.POST("/statuses", middleware.UserAuthentication, h.CreateStudentStatus)
+		studentGroup.PATCH("/statuses/:id", middleware.UserAuthentication, h.UpdateStudentStatus)
+		studentGroup.DELETE("/statuses/:id", middleware.UserAuthentication, h.DeleteStudentStatus)
+		studentGroup.POST("/import-from-file", middleware.UserAuthentication, h.ImportStudentsFromFile)
+		studentGroup.GET("/exported-file", middleware.UserAuthentication, h.ExportStudentsToFile)
+		studentGroup.GET("", middleware.UserAuthentication, h.GetStudentList)
+
 	}
+
+	
 }

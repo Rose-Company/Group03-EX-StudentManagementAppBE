@@ -8,8 +8,9 @@ import (
 )
 
 type Config struct {
-	Postgres  PostgresConfig
-	JWTSecret string
+	Postgres                   PostgresConfig
+	JWTSecret                  string
+	GoogleDriveCredentialsFile string
 }
 
 type PostgresConfig struct {
@@ -33,7 +34,8 @@ func LoadConfig() (*Config, error) {
 			User:     os.Getenv("DB_USER"),
 			Password: os.Getenv("DB_PASSWORD"),
 		},
-		JWTSecret: os.Getenv("JWT_SECRET"),
+		JWTSecret:                  os.Getenv("JWT_SECRET"),
+		GoogleDriveCredentialsFile: os.Getenv("GOOGLE_DRIVE_CREDENTIALS_FILE"),
 	}
 	return config, nil
 }

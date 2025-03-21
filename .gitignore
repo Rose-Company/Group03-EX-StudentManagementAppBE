@@ -2,4 +2,5 @@ docker-compose.yaml
 ca.pem
 .env
 /data
+/keys
 

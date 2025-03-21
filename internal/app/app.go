@@ -2,8 +2,10 @@
 package app
 
 import (
+	"Group03-EX-StudentManagementAppBE/internal/handlers/admin"
 	"Group03-EX-StudentManagementAppBE/internal/handlers/auth"
 	"Group03-EX-StudentManagementAppBE/internal/handlers/faculty"
+	"Group03-EX-StudentManagementAppBE/internal/handlers/program"
 	"Group03-EX-StudentManagementAppBE/internal/handlers/student"
 	"Group03-EX-StudentManagementAppBE/internal/services"
 
@@ -23,4 +25,13 @@ func Setup(router *gin.Engine, service *services.Service) {
 
 	facultyHandler := faculty.NewHandler(service)
 	facultyHandler.RegisterRoutes(api)
+
+	programHandler := program.NewHandler(service)
+	programHandler.RegisterRoutes(api)
+
+	if service.Admin != nil {
+		adminHandler := admin.NewHandler(service)
+		adminHandler.RegisterRoutes(api)
+	}
+
 }

@@ -7,6 +7,7 @@ import (
 
 type QuerySort struct {
 	Origin string
+	Sort   string `json:"sort" form:"sort"`
 }
 
 // Parse the query string to order string (Ex: http://example.com/messages?sort=created_at.asc,updated_at.acs
@@ -35,4 +36,20 @@ type BaseListResponse struct {
 	PageSize int         `json:"page_size"`
 	Items    interface{} `json:"items"`
 	Extra    interface{} `json:"extra"`
+}
+
+type FileTypeQueryRequest struct {
+	BaseRequestParamsUri
+	Type string `form:"type" validate:"omitempty,oneof=csv json"`
+}
+
+func (q *FileTypeQueryRequest) GetFileType() string {
+	if q.Type == "" {
+		return "csv"
+	}
+	return q.Type
+}
+
+func (q *FileTypeQueryRequest) IsValidFileType() bool {
+	return q.Type == "" || q.Type == "csv" || q.Type == "json"
 }

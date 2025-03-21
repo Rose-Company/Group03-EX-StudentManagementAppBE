@@ -43,6 +43,7 @@ func (h *Handler) LogIn(c *gin.Context) {
 		return
 	}
 
+
 	c.JSON(common.SUCCESS_STATUS, gin.H{
 		"code":  loginResp.Code,
 		"id":    loginResp.ID,
