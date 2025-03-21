@@ -157,6 +157,7 @@ type StudentDocumentResponse struct {
 
 // Used for list views
 type StudentListResponse struct {
+	ID          uuid.UUID `json:"id"`
 	Fullname    string `json:"fullname"`
 	StudentCode int    `json:"student_code"`
 	Email       string `json:"email"`
@@ -238,6 +239,7 @@ func (s *Student) ToResponse() *StudentResponse {
 // ToListResponse for simplified list view
 func (s *Student) ToListResponse() *StudentListResponse {
 	return &StudentListResponse{
+		ID: 		 s.ID,
 		Fullname:    s.Fullname,
 		StudentCode: s.StudentCode,
 		Email:       s.Email,
