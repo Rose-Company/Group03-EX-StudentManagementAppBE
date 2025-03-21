@@ -27,6 +27,7 @@ type Student struct {
 	UpdatedAt   time.Time          `json:"updated_at" gorm:"type:timestamptz;default:CURRENT_TIMESTAMP"`
 	ProgramID   int                `json:"program_id" gorm:"type:integer;references:programs(id)"`
 	Nationality string             `json:"nationality" gorm:"type:text"`
+	FacultyName string             `json:"faculty_name,omitempty" gorm:"-"`
 }
 
 func (s *Student) TableName() string {

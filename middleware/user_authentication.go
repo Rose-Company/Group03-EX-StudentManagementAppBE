@@ -42,8 +42,6 @@ func UserAuthentication(c *gin.Context) {
 
 	tokenString := arr[1]
 
-	fmt.Println(tokenString)
-
 	if tokenString == "" {
 		c.AbortWithStatusJSON(common.UNAUTHORIZED_STATUS, gin.H{"error": "Invalid token"})
 		return
