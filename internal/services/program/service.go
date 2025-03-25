@@ -5,7 +5,8 @@ import (
 	models_program "Group03-EX-StudentManagementAppBE/internal/models/program"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/program"
 	"context"
-	"log"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Service interface {
@@ -26,7 +27,12 @@ func NewProgramService(programRepo program.Repository) Service {
 }
 
 func (s *service) ListPrograms(ctx context.Context, userID string, req *models_program.ListProgramRequest) ([]*models_program.Program, error) {
-	log.Printf("Fetching program list with filters by user ID: %s", userID)
+	logger := log.WithContext(ctx).WithFields(log.Fields{
+		"function": "ListPrograms",
+		"userID":   userID,
+	})
+
+	logger.Info("Fetching program list with filters")
 	// Set default sort if not provided
 	if req.Sort == "" {
 		req.Sort = "name.asc"
@@ -40,34 +46,57 @@ func (s *service) ListPrograms(ctx context.Context, userID string, req *models_p
 
 	programs, err := s.programRepo.List(ctx, params)
 	if err != nil {
-		log.Printf("Error fetching program list: %v", err)
+		logger.WithError(err).Error("Failed to fetch program list")
 		return nil, err
 	}
-	log.Printf("Successfully fetched %d programs for user ID: %s", len(programs), userID)
+	logger.WithField("count", len(programs)).Info("Successfully fetched programs")
 	return programs, nil
 }
 
 func (s *service) CreateProgram(ctx context.Context, userID string, program *models_program.Program) error {
+	logger := log.WithContext(ctx).WithFields(log.Fields{
+		"function": "CreateProgram",
+		"userID":   userID,
+	})
+
+	logger.Info("Creating new program")
 	if _, err := s.programRepo.Create(ctx, program); err != nil {
+		logger.WithError(err).Error("Failed to create program")
 		return err
 	}
-	log.Printf("User ID: %s created program with ID: %d", userID, program.ID)
+	logger.WithField("programID", program.ID).Info("Program created successfully")
 	return nil
 }
 
 func (s *service) UpdateProgram(ctx context.Context, userID string, id string, program *models_program.Program) error {
+	logger := log.WithContext(ctx).WithFields(log.Fields{
+		"function": "UpdateProgram",
+		"userID":   userID,
+		"id":       id,
+	})
+
+	logger.Info("Updating program")
 	if _, err := s.programRepo.Update(ctx, id, program); err != nil {
+		logger.WithError(err).Error("Failed to update program")
 		return err
 	}
-	log.Printf("User ID: %s updated program with ID: %s", userID, id)
+	logger.Info("Program updated successfully")
 	return nil
 }
 
 func (s *service) DeleteProgram(ctx context.Context, userID string, id string) error {
+	logger := log.WithContext(ctx).WithFields(log.Fields{
+		"function": "DeleteProgram",
+		"userID":   userID,
+		"id":       id,
+	})
+
+	logger.Info("Deleting program")
 	err := s.programRepo.DeleteByID(ctx, id)
 	if err != nil {
+		logger.WithError(err).Error("Failed to delete program")
 		return err
 	}
-	log.Printf("User ID: %s deleted program with ID: %s", userID, id)
+	logger.Info("Program deleted successfully")
 	return nil
 }

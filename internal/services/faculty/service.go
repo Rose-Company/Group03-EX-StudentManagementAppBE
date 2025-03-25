@@ -30,6 +30,12 @@ func NewFalcutyService(facultyRepo faculty.Repository) Service {
 }
 
 func (s *facultyService) GetList(ctx context.Context, req *models.ListFacultyRequest) (*models.ListFacultyResponse, error) {
+	logger := log.WithContext(ctx).WithFields(log.Fields{
+		"function": "GetList",
+	})
+
+	logger.Info("Fetching faculty list")
+
 	if req.Sort == "" {
 		req.Sort = "name.asc"
 	}
@@ -63,7 +69,7 @@ func (s *facultyService) GetList(ctx context.Context, req *models.ListFacultyReq
 
 	faculties, err := s.facultyRepo.List(ctx, queryParams, combinedClause)
 	if err != nil {
-		log.WithError(err).Error("Failed to list faculties")
+		logger.WithError(err).Error("Failed to fetch faculty list")
 		return nil, err
 	}
 
@@ -72,43 +78,72 @@ func (s *facultyService) GetList(ctx context.Context, req *models.ListFacultyReq
 		facultyList = append(facultyList, *faculty)
 	}
 
+	logger.WithField("count", len(facultyList)).Info("Successfully fetched faculty list")
 	return &models.ListFacultyResponse{
 		Items: facultyList,
 	}, nil
 }
 
 func (s *facultyService) CreateAFaculty(ctx context.Context, userID string, req *models.CreateFacultyRequest) error {
-	// Change from CreateFacultyRequest to Faculty
+	logger := log.WithContext(ctx).WithFields(log.Fields{
+		"function": "CreateAFaculty",
+		"userID":   userID,
+	})
+
+	logger.Info("Creating new faculty")
+
 	faculty := &models.Faculty{
 		Name: req.Name,
 	}
 
 	_, err := s.facultyRepo.Create(ctx, faculty)
 	if err != nil {
+		logger.WithError(err).Error("Failed to create faculty")
 		return err
 	}
-	log.Printf("User ID: %s Faculty create successfully with ID: %d", userID, req.ID)
+
+	logger.WithField("facultyID", req.ID).Info("Faculty created successfully")
 	return nil
 }
 
 func (s *facultyService) UpdateFaculty(ctx context.Context, userID string, id string, req *models.UpdateFacultyRequest) error {
+	logger := log.WithContext(ctx).WithFields(log.Fields{
+		"function": "UpdateFaculty",
+		"userID":   userID,
+		"id":       id,
+	})
+
+	logger.Info("Updating faculty")
 
 	faculty := &models.Faculty{
 		Name: req.Name,
 	}
+
 	_, err := s.facultyRepo.Update(ctx, id, faculty)
 	if err != nil {
+		logger.WithError(err).Error("Failed to update faculty")
 		return err
 	}
-	log.Printf("User ID: %s Faculty updated successfully with ID: %s", userID, id)
+
+	logger.Info("Faculty updated successfully")
 	return nil
 }
 
 func (s *facultyService) DeleteFaculty(ctx context.Context, userID string, id string) error {
+	logger := log.WithContext(ctx).WithFields(log.Fields{
+		"function": "DeleteFaculty",
+		"userID":   userID,
+		"id":       id,
+	})
+
+	logger.Info("Deleting faculty")
+
 	err := s.facultyRepo.DeleteByID(ctx, id)
 	if err != nil {
+		logger.WithError(err).Error("Failed to delete faculty")
 		return err
 	}
-	log.Printf("User ID: %s deleted faculty with ID: %s", userID, id)
+
+	logger.Info("Faculty deleted successfully")
 	return nil
 }
