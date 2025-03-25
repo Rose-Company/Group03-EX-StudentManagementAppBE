@@ -22,7 +22,6 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 	programGroup := router.Group("/v1/students")
 	programGroup.GET("/programs", middleware.UserAuthentication, h.ListPrograms)
 	programGroup.POST("/programs", middleware.UserAuthentication, h.CreateProgram)
-	programGroup.PUT("/programs/:id", middleware.UserAuthentication, h.UpdateProgram)
+	programGroup.PATCH("/programs/:id", middleware.UserAuthentication, h.UpdateProgram)
 	programGroup.DELETE("/programs/:id", middleware.UserAuthentication, h.DeleteProgram)
-
 }

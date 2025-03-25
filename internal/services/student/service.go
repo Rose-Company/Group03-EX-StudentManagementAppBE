@@ -71,6 +71,7 @@ func NewStudentService(
 }
 
 func (s *studentService) GetStudentByID(ctx context.Context, id string) (*models.StudentResponse, error) {
+	log.Printf("Fetching student details for ID: %s", id)
 	var clauses []repositories.Clause
 	clauses = append(clauses, func(tx *gorm.DB) {
 		tx.Preload("Addresses", func(db *gorm.DB) *gorm.DB {
@@ -100,14 +101,15 @@ func (s *studentService) GetStudentByID(ctx context.Context, id string) (*models
 	// Get student with all related data
 	student, err := s.studentRepo.GetDetailByConditions(ctx, combinedClause)
 	if err != nil {
-		fmt.Println("ERROR: ", err)
+		log.Printf("Error fetching student with ID %s: %v", id, err)
 		return nil, err
 	}
-
+	log.Printf("Successfully fetched student details for ID: %s", id)
 	return student.ToResponse(), nil
 }
 
 func (s *studentService) GetStudentList(ctx context.Context, req *models.ListStudentRequest) (*models2.BaseListResponse, error) {
+	log.Printf("Fetching student list with filters: %+v", req)
 	if req.Sort == "" {
 		req.Sort = "student_code.asc"
 	}
@@ -172,7 +174,7 @@ func (s *studentService) GetStudentList(ctx context.Context, req *models.ListStu
 		Items:    studentResponses,
 		Extra:    nil,
 	}
-
+	log.Printf("Successfully fetched student list with %d records", len(students))
 	return response, nil
 }
 
@@ -258,7 +260,7 @@ func (s *studentService) CreateAStudent(ctx context.Context, userID string, requ
 			}
 		}
 	}
-
+	log.Printf("Successfully fetched student list ")
 	return nil
 }
 
@@ -377,7 +379,7 @@ func (s *studentService) UpdateStudent(ctx context.Context, userID string, stude
 			}
 		}
 	}
-
+	log.Printf("Student created successfully by user ID: %s", userID)
 	return nil
 }
 
@@ -397,12 +399,12 @@ func (s *studentService) DeleteStudentByID(ctx context.Context, userID string, s
 		})
 		return err
 	}
-
-	logger.Info("Student deleted successfully")
+	log.Printf("Student deleted successfully with ID: %s by user ID: %s", studentID, userID)
 	return nil
 }
 
 func (s *studentService) GetStudentStatuses(ctx context.Context, req *student_status_models.ListStudentStatusRequest) ([]*models.StudentStatus, error) {
+	log.Printf("Fetching student statuses with filters: %+v", req)
 
 	// Pass any filter conditions if needed
 	var clauses []repositories.Clause
@@ -428,9 +430,10 @@ func (s *studentService) GetStudentStatuses(ctx context.Context, req *student_st
 	// Query with proper parameters
 	studentStatus, err := s.studentStatusRepo.List(ctx, models2.QueryParams{}, combinedClause)
 	if err != nil {
-		log.WithError(err).Error("Failed to retrieve student statuses")
+		log.Printf("Error fetching student statuses: %v", err)
 		return nil, err
 	}
+	log.Printf("Successfully fetched %d student statuses", len(studentStatus))
 
 	// Map studentStatus to the expected type
 	var result []*models.StudentStatus
@@ -442,6 +445,7 @@ func (s *studentService) GetStudentStatuses(ctx context.Context, req *student_st
 	}
 	return result, nil
 }
+
 func (s *studentService) CreateStudentStatus(ctx context.Context, req *student_status_models.CreateStudentStatusRequest) error {
 
 	studentStatus := &student_status_models.StudentStatus{
@@ -452,10 +456,12 @@ func (s *studentService) CreateStudentStatus(ctx context.Context, req *student_s
 	if err != nil {
 		return err
 	}
+	log.Printf("Student status created successfully")
 	return nil
 }
 
 func (s *studentService) UpdateStudentStatus(ctx context.Context, id string, req *student_status_models.UpdateStudentStatusRequest) (*models.StudentStatus, error) {
+	log.Printf("Updating student status with ID: %s", id)
 	studentStatus := &models.StudentStatus{
 		Name: req.Name,
 	}
@@ -464,8 +470,10 @@ func (s *studentService) UpdateStudentStatus(ctx context.Context, id string, req
 	}
 	updatedStudentStatus, err := s.studentStatusRepo.Update(ctx, id, convertedStudentStatus)
 	if err != nil {
+		log.Printf("Error updating student status with ID %s: %v", id, err)
 		return nil, err
 	}
+	log.Printf("Student status updated successfully with ID: %s", id)
 	return &models.StudentStatus{
 		ID:   updatedStudentStatus.ID,
 		Name: updatedStudentStatus.Name,
@@ -473,7 +481,13 @@ func (s *studentService) UpdateStudentStatus(ctx context.Context, id string, req
 }
 
 func (s *studentService) DeleteStudentStatus(ctx context.Context, id string) error {
-	return s.studentStatusRepo.DeleteByID(ctx, id)
+	log.Printf("Deleting student status with ID: %s", id)
+	if err := s.studentStatusRepo.DeleteByID(ctx, id); err != nil {
+		log.Printf("Error deleting student status with ID %s: %v", id, err)
+		return err
+	}
+	log.Printf("Student status deleted successfully with ID: %s", id)
+	return nil
 }
 
 // Main import function that handles different file types
@@ -521,11 +535,11 @@ func (s *studentService) ImportStudentsFromFile(ctx context.Context, userID stri
 	contentReader := bytes.NewReader(bodyBytes)
 
 	// First try to determine file type from content
-	fileType := determineFileTypeFromContent(contentReader)
+	fileType := common.DetermineFileTypeFromContent(contentReader)
 
 	// If couldn't determine from content, try URL and headers
-	if fileType == "unknown" {
-		fileType = determineFileTypeFromMetadata(fileURL, resp.Header)
+	if fileType == common.FILE_TYPE_UNKNOWN {
+		fileType = common.DetermineFileTypeFromMetadata(fileURL, resp.Header)
 	}
 
 	logger.WithField("fileType", fileType).Info("Determined file type")
@@ -538,19 +552,19 @@ func (s *studentService) ImportStudentsFromFile(ctx context.Context, userID stri
 	var processErr error
 
 	switch fileType {
-	case "csv":
-		result, processErr = s.processCSVFile(ctx, userID, contentReader, logger)
-	case "json":
-		result, processErr = s.processJSONFile(ctx, userID, contentReader, logger)
+	case common.FILE_TYPE_CSV:
+		result, processErr = s.processImportFile(ctx, userID, contentReader, fileType, logger)
+	case common.FILE_TYPE_JSON:
+		result, processErr = s.processImportFile(ctx, userID, contentReader, fileType, logger)
 	default:
 		// For Google Drive, make one more attempt with CSV since it's common
 		if strings.Contains(fileURL, "drive.google.com") || strings.Contains(fileURL, "docs.google.com") {
 			contentReader.Seek(0, io.SeekStart)
 			logger.Info("Trying CSV processing for Google Drive file")
-			result, processErr = s.processCSVFile(ctx, userID, contentReader, logger)
+			result, processErr = s.processImportFile(ctx, userID, contentReader, fileType, logger)
 		} else {
 			logger.Error("Unsupported file type")
-			return nil, common.ErrInvalidFormat
+			return nil, common.ErrInvalidFileFormat
 		}
 	}
 
@@ -561,145 +575,46 @@ func (s *studentService) ImportStudentsFromFile(ctx context.Context, userID stri
 	return result, nil
 }
 
-// determineFileTypeFromContent analyzes the content to determine file type
-func determineFileTypeFromContent(reader io.ReadSeeker) string {
-	// Save original position
-	currentPosition, err := reader.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return "unknown"
-	}
-	defer reader.Seek(currentPosition, io.SeekStart) // Restore position afterward
-
-	// Read first 1024 bytes to analyze
-	buf := make([]byte, 1024)
-	n, err := reader.Read(buf)
-	if err != nil && err != io.EOF {
-		return "unknown"
-	}
-
-	sample := buf[:n]
-
-	// Check if it's JSON by looking for JSON structure
-	trimmedSample := bytes.TrimSpace(sample)
-	if len(trimmedSample) > 0 {
-		firstChar := trimmedSample[0]
-		if (firstChar == '{' && bytes.Contains(trimmedSample, []byte{':'})) ||
-			(firstChar == '[' && bytes.Contains(trimmedSample, []byte{'{'})) {
-			return "json"
-		}
-	}
-
-	// Check if it looks like CSV by looking for comma-separated values and newlines
-	// Count commas and newlines to ensure it's consistent with CSV format
-	commaCount := bytes.Count(sample, []byte{','})
-	newlineCount := bytes.Count(sample, []byte{'\n'})
-
-	// Only consider it CSV if there are reasonable comma counts per line (at least one comma)
-	// and more than one line
-	if newlineCount > 0 && commaCount > 0 && commaCount/newlineCount >= 1 {
-		// Check if first line looks like a header (no numeric values)
-		lines := bytes.Split(sample, []byte{'\n'})
-		if len(lines) > 0 {
-			firstLine := lines[0]
-			// Check if first line has commas and doesn't look like numeric data
-			if bytes.Contains(firstLine, []byte{','}) &&
-				!bytes.ContainsAny(firstLine, "0123456789") {
-				return "csv"
-			}
-		}
-
-		// Even without clear header, if it has commas and lines, likely CSV
-		return "csv"
-	}
-
-	// Default
-	return "unknown"
+// Helper type for import records
+type importRecord struct {
+	index int
+	data  *models.CreateStudentRequest
+	err   error
 }
 
-// determineFileTypeFromMetadata examines URL and headers for file type clues
-func determineFileTypeFromMetadata(fileURL string, headers http.Header) string {
-	// Try to determine from URL
-	lowerURL := strings.ToLower(fileURL)
-	if strings.HasSuffix(lowerURL, ".csv") {
-		return "csv"
-	} else if strings.HasSuffix(lowerURL, ".json") {
-		return "json"
+// Process files with goroutines for concurrent processing
+func (s *studentService) processImportFile(ctx context.Context, userID string, reader io.Reader, fileType string, logger *log.Entry) (*admin_models.ImportResult, error) {
+	// Parse input data based on file type
+	var records []importRecord
+	var err error
+
+	switch fileType {
+	case common.FILE_TYPE_CSV:
+		records, err = s.parseCSVData(reader, logger)
+	case common.FILE_TYPE_JSON:
+		records, err = s.parseJSONData(reader, logger)
+	default:
+		return nil, common.ErrInvalidFileFormat
 	}
 
-	// Look for content disposition header which might have filename
-	contentDisposition := headers.Get("Content-Disposition")
-	if contentDisposition != "" {
-		if strings.Contains(strings.ToLower(contentDisposition), ".csv") {
-			return "csv"
-		} else if strings.Contains(strings.ToLower(contentDisposition), ".json") {
-			return "json"
-		}
-	}
-
-	// Check content type
-	contentType := headers.Get("Content-Type")
-	if strings.Contains(contentType, "csv") || strings.Contains(contentType, "text/comma-separated-values") {
-		return "csv"
-	} else if strings.Contains(contentType, "json") || strings.Contains(contentType, "application/json") {
-		return "json"
-	} else if strings.Contains(contentType, "text/plain") {
-		// Many CSVs are served as text/plain
-		return "csv"
-	}
-
-	// Default
-	return "unknown"
-}
-
-// Process CSV files with goroutines for concurrent processing
-func (s *studentService) processCSVFile(ctx context.Context, userID string, reader io.Reader, logger *log.Entry) (*admin_models.ImportResult, error) {
-	// Create CSV reader
-	csvReader := csv.NewReader(reader)
-
-	// Read headers
-	headers, err := csvReader.Read()
 	if err != nil {
-		logger.WithError(err).Error("Failed to read CSV headers")
-		return nil, fmt.Errorf("failed to read CSV headers: %w", err)
+		return nil, err
 	}
 
-	// Map column indices
-	headerMap := make(map[string]int)
-	for i, header := range headers {
-		headerMap[strings.ToLower(strings.TrimSpace(header))] = i
-	}
-
-	// Verify required columns - only check essential columns
-	requiredColumns := []string{"studentcode", "fullname", "email"}
-	for _, col := range requiredColumns {
-		if _, ok := headerMap[col]; !ok {
-			logger.WithField("missingColumn", col).Error("CSV is missing required column")
-			return nil, fmt.Errorf("CSV is missing required column: %s", col)
-		}
-	}
-
-	// Read all rows
-	rows, err := csvReader.ReadAll()
-	if err != nil {
-		logger.WithError(err).Error("Failed to read CSV rows")
-		return nil, fmt.Errorf("failed to read CSV rows: %w", err)
-	}
-
-	// Setup concurrency controls
-	totalRows := len(rows)
-	logger.WithField("totalRows", totalRows).Info("Starting concurrent processing of student records")
+	totalRecords := len(records)
+	logger.WithFields(log.Fields{
+		"fileType":     fileType,
+		"totalRecords": totalRecords,
+	}).Info("Starting concurrent processing of records")
 
 	// Variables for tracking results
 	var (
-		successCount int32 = 0
-		errorCount   int32 = 0
-		mu           sync.Mutex
-		wg           sync.WaitGroup
-		maxWorkers   = 10 // Adjust based on your system capabilities
-		rowChan      = make(chan struct {
-			rowNum int
-			row    []string
-		}, maxWorkers)
+		successCount  int32 = 0
+		errorCount    int32 = 0
+		mu            sync.Mutex
+		wg            sync.WaitGroup
+		maxWorkers    = 10 // Adjust based on your system capabilities
+		recordChan    = make(chan importRecord, maxWorkers)
 		failedRecords = make([]admin_models.FailedRecordDetail, 0)
 	)
 
@@ -707,86 +622,106 @@ func (s *studentService) processCSVFile(ctx context.Context, userID string, read
 	for i := 0; i < maxWorkers; i++ {
 		wg.Add(1)
 		go func(workerID int) {
-			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					logger.WithField("recover", r).Error("Recovered from panic in worker goroutine")
+					atomic.AddInt32(&errorCount, 1)
+				}
+				wg.Done()
+			}()
+
 			workerLogger := logger.WithField("workerID", workerID)
 
-			for job := range rowChan {
-				rowNum := job.rowNum
-				row := job.row
-
-				// Create student request from row
-				studentReq, err := s.createStudentRequestFromCSV(row, headerMap)
-				if err != nil {
+			for record := range recordChan {
+				// If record already has an error from parsing, log it and continue
+				if record.err != nil {
 					atomic.AddInt32(&errorCount, 1)
 					mu.Lock()
 					failedRecords = append(failedRecords, admin_models.FailedRecordDetail{
-						RowNumber: rowNum,
-						Error:     fmt.Sprintf("Failed to parse row: %v", err),
+						RowNumber: record.index + 1,
+						Error:     record.err.Error(),
 					})
 					mu.Unlock()
-					workerLogger.WithError(err).WithField("rowNum", rowNum).Warn("Error creating student from CSV row, skipping")
 					continue
 				}
 
-				// Create student
-				err = s.CreateAStudent(ctx, userID, studentReq)
+				// Double-check required fields
+				if record.data == nil || record.data.StudentCode == nil || record.data.Fullname == nil || record.data.Email == nil {
+					atomic.AddInt32(&errorCount, 1)
+					mu.Lock()
+					failedRecords = append(failedRecords, admin_models.FailedRecordDetail{
+						RowNumber: record.index + 1,
+						Error:     "Missing required fields after parsing",
+					})
+					mu.Unlock()
+					workerLogger.WithField("recordIndex", record.index).Warn("Missing required fields after parsing, skipping")
+					continue
+				}
+
+				// Create student with panic protection
+				var err error
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							err = fmt.Errorf("panic while creating student: %v", r)
+						}
+					}()
+					err = s.CreateAStudent(ctx, userID, record.data)
+				}()
+
 				if err != nil {
 					atomic.AddInt32(&errorCount, 1)
 					mu.Lock()
 					failedRecords = append(failedRecords, admin_models.FailedRecordDetail{
-						RowNumber:   rowNum,
-						StudentCode: fmt.Sprintf("%d", *studentReq.StudentCode),
-						Email:       *studentReq.Email,
+						RowNumber:   record.index + 1,
+						StudentCode: fmt.Sprintf("%d", *record.data.StudentCode),
+						Email:       *record.data.Email,
 						Error:       fmt.Sprintf("Database error: %v", err),
 					})
 					mu.Unlock()
 					workerLogger.WithError(err).WithFields(log.Fields{
-						"rowNum":      rowNum,
-						"studentCode": *studentReq.StudentCode,
-						"email":       *studentReq.Email,
+						"recordIndex": record.index,
+						"studentCode": *record.data.StudentCode,
+						"email":       *record.data.Email,
 					}).Warn("Error creating student, skipping")
 					continue
 				}
 
 				atomic.AddInt32(&successCount, 1)
 				workerLogger.WithFields(log.Fields{
-					"rowNum":      rowNum,
-					"studentCode": *studentReq.StudentCode,
-					"email":       *studentReq.Email,
+					"recordIndex": record.index,
+					"studentCode": *record.data.StudentCode,
+					"email":       *record.data.Email,
 				}).Info("Successfully created student")
 			}
 		}(i)
 	}
 
-	// Send rows to workers
-	for i, row := range rows {
-		rowNum := i + 2 // +2 because row 0 is header and we're 1-indexed for human readability
-		rowChan <- struct {
-			rowNum int
-			row    []string
-		}{rowNum: rowNum, row: row}
+	// Send records to workers
+	for i, record := range records {
+		recordChan <- record
 
 		// Log progress periodically
-		if (i+1)%100 == 0 || i+1 == totalRows {
+		if (i+1)%100 == 0 || i+1 == totalRecords {
 			logger.WithFields(log.Fields{
-				"progress": fmt.Sprintf("%d/%d", i+1, totalRows),
-				"percent":  fmt.Sprintf("%.1f%%", float64(i+1)/float64(totalRows)*100),
+				"progress": fmt.Sprintf("%d/%d", i+1, totalRecords),
+				"percent":  fmt.Sprintf("%.1f%%", float64(i+1)/float64(totalRecords)*100),
 			}).Info("Import progress")
 		}
 	}
 
-	// Close channel when all rows are sent
-	close(rowChan)
+	// Close channel when all records are sent
+	close(recordChan)
 
 	// Wait for all workers to finish
 	wg.Wait()
 
 	// Log completion
 	logger.WithFields(log.Fields{
-		"totalRows":    totalRows,
+		"totalRecords": totalRecords,
 		"successCount": successCount,
 		"errorCount":   errorCount,
-	}).Info("Completed processing CSV file")
+	}).Info("Completed processing file")
 
 	// Sort failed records by row number for easier reading
 	sort.Slice(failedRecords, func(i, j int) bool {
@@ -802,10 +737,54 @@ func (s *studentService) processCSVFile(ctx context.Context, userID string, read
 	return result, nil
 }
 
-// Process JSON files with goroutines for concurrent processing
-// Refactored JSON processing function with improved error handling
-func (s *studentService) processJSONFile(ctx context.Context, userID string, reader io.Reader, logger *log.Entry) (*admin_models.ImportResult, error) {
-	// Read JSON data
+// Helper function to parse CSV data
+func (s *studentService) parseCSVData(reader io.Reader, logger *log.Entry) ([]importRecord, error) {
+	csvReader := csv.NewReader(reader)
+
+	// Read headers
+	headers, err := csvReader.Read()
+	if err != nil {
+		logger.WithError(err).Error("Failed to read CSV headers")
+		return nil, fmt.Errorf("failed to read CSV headers: %w", err)
+	}
+
+	// Map column indices
+	headerMap := make(map[string]int)
+	for i, header := range headers {
+		headerMap[strings.ToLower(strings.TrimSpace(header))] = i
+	}
+
+	// Verify required columns
+	requiredColumns := []string{"studentcode", "fullname", "email"}
+	for _, col := range requiredColumns {
+		if _, ok := headerMap[col]; !ok {
+			logger.WithField("missingColumn", col).Error("CSV is missing required column")
+			return nil, fmt.Errorf("CSV is missing required column: %s", col)
+		}
+	}
+
+	// Read all rows
+	rows, err := csvReader.ReadAll()
+	if err != nil {
+		logger.WithError(err).Error("Failed to read CSV rows")
+		return nil, fmt.Errorf("failed to read CSV rows: %w", err)
+	}
+
+	records := make([]importRecord, len(rows))
+	for i, row := range rows {
+		studentReq, err := s.createStudentRequestFromCSV(row, headerMap)
+		records[i] = importRecord{
+			index: i + 1, // +1 for human-readable indexing
+			data:  studentReq,
+			err:   err,
+		}
+	}
+
+	return records, nil
+}
+
+// Helper function to parse JSON data
+func (s *studentService) parseJSONData(reader io.Reader, logger *log.Entry) ([]importRecord, error) {
 	var studentsData []map[string]interface{}
 	decoder := json.NewDecoder(reader)
 	err := decoder.Decode(&studentsData)
@@ -814,171 +793,25 @@ func (s *studentService) processJSONFile(ctx context.Context, userID string, rea
 		return nil, fmt.Errorf("failed to decode JSON data: %w", err)
 	}
 
-	totalRecords := len(studentsData)
-	logger.WithField("totalRecords", totalRecords).Info("Starting concurrent processing of JSON records")
-
-	// Variables for tracking results
-	var (
-		successCount int32 = 0
-		errorCount   int32 = 0
-		mu           sync.Mutex
-		wg           sync.WaitGroup
-		maxWorkers   = 10 // Adjust based on your system capabilities
-		dataChan     = make(chan struct {
-			index int
-			data  map[string]interface{}
-		}, maxWorkers)
-		failedRecords = make([]admin_models.FailedRecordDetail, 0)
-	)
-
-	// Create worker pool
-	for i := 0; i < maxWorkers; i++ {
-		wg.Add(1)
-		go func(workerID int) {
-			defer func() {
-				// Recover from panics in goroutines
-				if r := recover(); r != nil {
-					logger.WithField("recover", r).Error("Recovered from panic in worker goroutine")
-					atomic.AddInt32(&errorCount, 1)
-				}
-				wg.Done()
-			}()
-
-			workerLogger := logger.WithField("workerID", workerID)
-
-			for job := range dataChan {
-				index := job.index
-				data := job.data
-
-				// Skip nil or empty data
-				if data == nil || len(data) == 0 {
-					atomic.AddInt32(&errorCount, 1)
-					mu.Lock()
-					failedRecords = append(failedRecords, admin_models.FailedRecordDetail{
-						RowNumber: index + 1, // +1 for human-readable indexing
-						Error:     "Empty or nil record data",
-					})
-					mu.Unlock()
-					continue
-				}
-
-				// Convert JSON record to CreateStudentRequest with panic protection
-				var studentReq *models.CreateStudentRequest
-				var err error
-
-				func() {
-					defer func() {
-						if r := recover(); r != nil {
-							err = fmt.Errorf("panic while parsing JSON data: %v", r)
-						}
-					}()
-					studentReq, err = s.createStudentRequestFromJSON(data)
-				}()
-
-				if err != nil {
-					atomic.AddInt32(&errorCount, 1)
-					mu.Lock()
-					failedRecords = append(failedRecords, admin_models.FailedRecordDetail{
-						RowNumber: index + 1, // +1 for human-readable indexing
-						Error:     fmt.Sprintf("Failed to parse data: %v", err),
-					})
-					mu.Unlock()
-					workerLogger.WithError(err).WithField("recordIndex", index).Warn("Error creating student from JSON data, skipping")
-					continue
-				}
-
-				// Double-check required fields before proceeding
-				if studentReq == nil || studentReq.StudentCode == nil || studentReq.Fullname == nil || studentReq.Email == nil {
-					atomic.AddInt32(&errorCount, 1)
-					mu.Lock()
-					failedRecords = append(failedRecords, admin_models.FailedRecordDetail{
-						RowNumber: index + 1,
-						Error:     "Missing required fields after parsing",
-					})
-					mu.Unlock()
-					workerLogger.WithField("recordIndex", index).Warn("Missing required fields after parsing JSON data, skipping")
-					continue
-				}
-
-				// Create student with panic protection
-				func() {
-					defer func() {
-						if r := recover(); r != nil {
-							err = fmt.Errorf("panic while creating student: %v", r)
-						}
-					}()
-					err = s.CreateAStudent(ctx, userID, studentReq)
-				}()
-
-				if err != nil {
-					atomic.AddInt32(&errorCount, 1)
-					mu.Lock()
-					failedRecords = append(failedRecords, admin_models.FailedRecordDetail{
-						RowNumber:   index + 1,
-						StudentCode: fmt.Sprintf("%d", *studentReq.StudentCode),
-						Email:       *studentReq.Email,
-						Error:       fmt.Sprintf("Database error: %v", err),
-					})
-					mu.Unlock()
-					workerLogger.WithError(err).WithFields(log.Fields{
-						"recordIndex": index,
-						"studentCode": *studentReq.StudentCode,
-						"email":       *studentReq.Email,
-					}).Warn("Error creating student, skipping")
-					continue
-				}
-
-				atomic.AddInt32(&successCount, 1)
-				workerLogger.WithFields(log.Fields{
-					"recordIndex": index,
-					"studentCode": *studentReq.StudentCode,
-					"email":       *studentReq.Email,
-				}).Info("Successfully created student")
-			}
-		}(i)
-	}
-
-	// Send data to workers
+	records := make([]importRecord, len(studentsData))
 	for i, data := range studentsData {
-		dataChan <- struct {
-			index int
-			data  map[string]interface{}
-		}{index: i, data: data}
+		if data == nil || len(data) == 0 {
+			records[i] = importRecord{
+				index: i,
+				err:   fmt.Errorf("empty or nil record data"),
+			}
+			continue
+		}
 
-		// Log progress periodically
-		if (i+1)%100 == 0 || i+1 == totalRecords {
-			logger.WithFields(log.Fields{
-				"progress": fmt.Sprintf("%d/%d", i+1, totalRecords),
-				"percent":  fmt.Sprintf("%.1f%%", float64(i+1)/float64(totalRecords)*100),
-			}).Info("Import progress")
+		studentReq, err := s.createStudentRequestFromJSON(data)
+		records[i] = importRecord{
+			index: i,
+			data:  studentReq,
+			err:   err,
 		}
 	}
 
-	// Close channel when all data is sent
-	close(dataChan)
-
-	// Wait for all workers to finish
-	wg.Wait()
-
-	// Log completion
-	logger.WithFields(log.Fields{
-		"totalRecords": totalRecords,
-		"successCount": successCount,
-		"errorCount":   errorCount,
-	}).Info("Completed processing JSON file")
-
-	// Sort failed records by index for easier reading
-	sort.Slice(failedRecords, func(i, j int) bool {
-		return failedRecords[i].RowNumber < failedRecords[j].RowNumber
-	})
-
-	result := &admin_models.ImportResult{
-		SuccessCount:  int(successCount),
-		ErrorCount:    int(errorCount),
-		FailedRecords: failedRecords,
-	}
-
-	return result, nil
+	return records, nil
 }
 
 // Helper function to create student request from CSV row

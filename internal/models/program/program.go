@@ -16,14 +16,3 @@ func (p *Program) TableName() string {
 type ListProgramRequest struct {
 	Sort string `form:"sort"`
 }
-
-type QuerySort struct {
-	Sort string
-}
-
-func (qs QuerySort) Parse() string {
-	if qs.Sort == "" {
-		return ""
-	}
-	return qs.Sort
-}

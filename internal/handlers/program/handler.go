@@ -5,9 +5,6 @@ import (
 
 	models "Group03-EX-StudentManagementAppBE/internal/models/program"
 
-	"log"
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,20 +15,18 @@ func (h *Handler) ListPrograms(c *gin.Context) {
 		return
 	}
 
-	log.Printf("User ID: %s is listing programs", profile.Id)
-
 	var req models.ListProgramRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		common.AbortWithError(c, err)
 	}
 
-	programs, err := h.Service.Program.ListPrograms(c, &req)
+	programs, err := h.Service.Program.ListPrograms(c, profile.Id, &req)
 	if err != nil {
 		common.AbortWithError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, common.ResponseCustom(common.REQUEST_SUCCESS, programs, "Success"))
+	c.JSON(common.SUCCESS_STATUS, common.ResponseOk(programs))
 }
 
 func (h *Handler) CreateProgram(c *gin.Context) {
@@ -51,10 +46,7 @@ func (h *Handler) CreateProgram(c *gin.Context) {
 		common.AbortWithError(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, common.Response{
-		Code:    200,
-		Message: "Program created successfully",
-	})
+	c.JSON(common.SUCCESS_STATUS, common.ResponseOk(nil))
 }
 
 func (h *Handler) UpdateProgram(c *gin.Context) {
@@ -70,15 +62,12 @@ func (h *Handler) UpdateProgram(c *gin.Context) {
 		common.AbortWithError(c, err)
 		return
 	}
-
-	if err := h.Service.Program.UpdateProgram(c, profile.Id, id, &program); err != nil {
+	err := h.Service.Program.UpdateProgram(c, profile.Id, id, &program)
+	if err != nil {
 		common.AbortWithError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, common.Response{
-		Code:    200,
-		Message: "Program updated successfully",
-	})
+	c.JSON(common.SUCCESS_STATUS, common.ResponseOk(nil))
 }
 
 func (h *Handler) DeleteProgram(c *gin.Context) {
@@ -94,8 +83,5 @@ func (h *Handler) DeleteProgram(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, common.Response{
-		Code:    200,
-		Message: "Student delete successfully",
-	})
+	c.JSON(common.SUCCESS_STATUS, common.ResponseOk(nil))
 }

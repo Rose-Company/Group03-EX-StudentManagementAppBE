@@ -9,7 +9,7 @@ import (
 )
 
 type Service interface {
-	ListPrograms(ctx context.Context, req *models_program.ListProgramRequest) ([]*models_program.Program, error)
+	ListPrograms(ctx context.Context, userID string, req *models_program.ListProgramRequest) ([]*models_program.Program, error)
 	CreateProgram(ctx context.Context, userID string, program *models_program.Program) error
 	UpdateProgram(ctx context.Context, userID string, id string, program *models_program.Program) error
 	DeleteProgram(ctx context.Context, userID string, id string) error
@@ -25,7 +25,8 @@ func NewProgramService(programRepo program.Repository) Service {
 	}
 }
 
-func (s *service) ListPrograms(ctx context.Context, req *models_program.ListProgramRequest) ([]*models_program.Program, error) {
+func (s *service) ListPrograms(ctx context.Context, userID string, req *models_program.ListProgramRequest) ([]*models_program.Program, error) {
+	log.Printf("Fetching program list with filters by user ID: %s", userID)
 	// Set default sort if not provided
 	if req.Sort == "" {
 		req.Sort = "name.asc"
@@ -37,7 +38,13 @@ func (s *service) ListPrograms(ctx context.Context, req *models_program.ListProg
 		},
 	}
 
-	return s.programRepo.List(ctx, params)
+	programs, err := s.programRepo.List(ctx, params)
+	if err != nil {
+		log.Printf("Error fetching program list: %v", err)
+		return nil, err
+	}
+	log.Printf("Successfully fetched %d programs for user ID: %s", len(programs), userID)
+	return programs, nil
 }
 
 func (s *service) CreateProgram(ctx context.Context, userID string, program *models_program.Program) error {

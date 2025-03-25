@@ -1,6 +1,7 @@
 package gdrive
 
 import (
+	"Group03-EX-StudentManagementAppBE/common"
 	"Group03-EX-StudentManagementAppBE/internal/models/gdrive"
 	"bytes"
 	"context"
@@ -41,7 +42,7 @@ const (
 )
 
 // Allowed file extensions
-var allowedExtensions = []string{".csv", ".json"}
+var allowedExtensions = []string{common.CSV_FILE_EXTENSION, common.CSV_FILE_EXTENSION}
 
 // NewHTTPDriveService creates a new Google Drive service using direct HTTP calls
 func NewHTTPDriveService(credentialsFile string) (Service, error) {
@@ -339,13 +340,13 @@ func (s *httpDriveService) GetMimeType(fileName string) string {
 
 	// Return appropriate MIME type
 	switch ext {
-	case ".xlsx":
+	case common.XLSX_FILE_EXTENSION:
 		return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-	case ".xls":
+	case common.XLS_FILE_EXTENSION:
 		return "application/vnd.ms-excel"
-	case ".csv":
+	case common.CSV_FILE_EXTENSION:
 		return "text/csv"
-	case ".json":
+	case common.JSON_FILE_EXTENSION:
 		return "application/json"
 	default:
 		return "application/octet-stream"
