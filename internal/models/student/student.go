@@ -309,3 +309,44 @@ type DocumentRequest struct {
 type CreateStudentRequest StudentRequest
 
 type UpdateStudentRequest StudentRequest
+
+// ImportRecord represents a single record from an import file
+type ImportRecord struct {
+	Index int
+	Data  *CreateStudentRequest
+	Err   error
+}
+
+// StudentExport represents the structure for JSON export
+type StudentExport struct {
+	StudentCode      int    `json:"student_code"`
+	FullName         string `json:"full_name"`
+	Email            string `json:"email"`
+	DateOfBirth      string `json:"date_of_birth"`
+	Gender           string `json:"gender"`
+	FacultyID        int    `json:"faculty_id"`
+	FacultyName      string `json:"faculty_name"`
+	Batch            string `json:"batch"`
+	Program          string `json:"program"`
+	Address          string `json:"address"`
+	Phone            string `json:"phone"`
+	Status           string `json:"status"`
+	Nationality      string `json:"nationality"`
+	PermanentAddress string `json:"permanent_address"`
+	TemporaryAddress string `json:"temporary_address"`
+}
+
+// ImportResult represents the result of an import operation
+type ImportResult struct {
+	SuccessCount  int
+	ErrorCount    int
+	FailedRecords []FailedRecordDetail
+}
+
+// FailedRecordDetail represents details about a failed import record
+type FailedRecordDetail struct {
+	RowNumber   int
+	StudentCode string
+	Email       string
+	Error       string
+}

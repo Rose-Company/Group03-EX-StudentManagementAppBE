@@ -42,7 +42,7 @@ const (
 )
 
 // Allowed file extensions
-var allowedExtensions = []string{common.CSV_FILE_EXTENSION, common.CSV_FILE_EXTENSION}
+var allowedExtensions = []string{common.CSV_FILE_EXTENSION, common.JSON_FILE_EXTENSION}
 
 // NewHTTPDriveService creates a new Google Drive service using direct HTTP calls
 func NewHTTPDriveService(credentialsFile string) (Service, error) {
