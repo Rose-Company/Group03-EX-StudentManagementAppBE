@@ -27,3 +27,12 @@ func (qs QuerySort) Parse() string {
 	}
 	return qs.Sort
 }
+
+type ProgramResponse struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type CreateProgramRequest struct {
+	Name string `json:"name" binding:"required"`
+}

@@ -24,5 +24,4 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 	programGroup.POST("/programs", middleware.UserAuthentication, h.CreateProgram)
 	programGroup.PUT("/programs/:id", middleware.UserAuthentication, h.UpdateProgram)
 	programGroup.DELETE("/programs/:id", middleware.UserAuthentication, h.DeleteProgram)
-
 }

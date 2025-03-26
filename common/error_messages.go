@@ -20,12 +20,15 @@ var (
 	ErrInvalidFileSize        = errors.New("invalid file size")
 	ErrFileTooLarge           = errors.New("file too large")
 	ErrLinkNotFound           = errors.New("link not found")
+	ErrInternalServer         = errors.New("internal server error")
 )
 
 var listErrorData = []errData{
 	// Define your error data here, for example:
 	{Code: "user_not_found", HTTPCode: 404, MessageViVn: "Không tìm thấy người dùng", MessageEnUs: "User not found"},
 	{Code: "invalid_token", HTTPCode: 401, MessageViVn: "Token không hợp lệ", MessageEnUs: "Invalid token"},
+	{Code: "invalid_input", HTTPCode: 400, MessageViVn: "Dữ liệu không hợp lệ", MessageEnUs: "Invalid input"},
+	{Code: "internal server error", HTTPCode: 500, MessageViVn: "Lỗi hệ thống", MessageEnUs: "Internal server error"},
 	// Add more error codes and their messages here...
 }
 
