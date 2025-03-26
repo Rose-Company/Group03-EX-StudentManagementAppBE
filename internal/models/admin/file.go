@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// File represents a student file uploaded to Google Drive
 type File struct {
 	ID          uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
 	DriveFileID string    `json:"drive_file_id" gorm:"type:text;not null"`
@@ -28,7 +27,6 @@ func (f *File) TableName() string {
 	return common.POSTGRES_TABLE_NAME_FILES
 }
 
-// ToResponse converts the model to response format
 func (f *File) ToResponse() *ImportedFileResponse {
 	return &ImportedFileResponse{
 		ID:          f.ID.String(),
@@ -43,7 +41,6 @@ func (f *File) ToResponse() *ImportedFileResponse {
 	}
 }
 
-// ImportedFileResponse is the response for file imports
 type ImportedFileResponse struct {
 	ID          string    `json:"id"`
 	FileName    string    `json:"file_name"`
@@ -56,20 +53,16 @@ type ImportedFileResponse struct {
 	Status      string    `json:"status"`
 }
 
-// ImportedFileListRequest is the request for listing imported files
 type ImportedFileListRequest struct {
 	Page     int    `form:"page" binding:"required,min=1"`
 	PageSize int    `form:"page_size" binding:"required,min=1,max=100"`
 	Sort     string `form:"sort"`
 }
 
-// ImportedFileCreateRequest is the request for creating an imported file
-// This is only used for documentation purposes as the actual request is multipart/form-data
 type ImportedFileCreateRequest struct {
 	File []byte `json:"-"`
 }
 
-// Add this struct to your models package or where appropriate
 type ImportResult struct {
 	SuccessCount  int                  `json:"success_count"`
 	ErrorCount    int                  `json:"error_count"`
@@ -88,17 +81,14 @@ type FileHeaderWrapper struct {
 	File   multipart.File
 }
 
-// Open implements the Open method required by multipart.FileHeader
 func (f *FileHeaderWrapper) Open() (multipart.File, error) {
 	return f.File, nil
 }
 
-// Filename returns the filename
 func (f *FileHeaderWrapper) Filename() string {
 	return f.Header.Filename
 }
 
-// Size returns the file size
 func (f *FileHeaderWrapper) Size() int64 {
 	return f.Header.Size
 }

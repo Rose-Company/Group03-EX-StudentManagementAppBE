@@ -6,20 +6,18 @@ import (
 	"Group03-EX-StudentManagementAppBE/internal/models/admin"
 	"Group03-EX-StudentManagementAppBE/internal/services"
 	"Group03-EX-StudentManagementAppBE/middleware"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
 const (
-	MaxFileSize = 10 << 20 // 10 MB
+	MaxFileSize = 10 << 20
 )
 
 type Handler struct {
 	base.Handler
 }
 
-// NewHandler creates a new admin handler
 func NewHandler(service *services.Service) *Handler {
 	return &Handler{
 		Handler: base.NewHandler(service),
@@ -48,7 +46,6 @@ func (h *Handler) ImportStudentFile(c *gin.Context) {
 		return
 	}
 
-	// Get file
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
 		common.AbortWithError(c, err)
@@ -56,22 +53,19 @@ func (h *Handler) ImportStudentFile(c *gin.Context) {
 	}
 	defer file.Close()
 
-	// Validate file size
 	if header.Size > MaxFileSize {
 		common.AbortWithError(c, common.ErrFileTooLarge)
 		return
 	}
 
-	// Import file
 	response, err := h.Service.Admin.ImportStudentFile(c.Request.Context(), profile.Id, header)
 	if err != nil {
 		common.AbortWithError(c, err)
 	}
 
-	c.JSON(http.StatusOK, response)
+	c.JSON(common.SUCCESS_STATUS, common.ResponseOk(response))
 }
 
-// GetImportedFile handles retrieving an imported file
 func (h *Handler) GetImportedFile(c *gin.Context) {
 	fileID := c.Param("id")
 	if fileID == "" {
@@ -85,18 +79,15 @@ func (h *Handler) GetImportedFile(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, file)
+	c.JSON(common.SUCCESS_STATUS, common.ResponseOk(file))
 }
 
-// ListImportedFiles handles listing imported files
 func (h *Handler) ListImportedFiles(c *gin.Context) {
 	var req admin.ImportedFileListRequest
 
-	// Set defaults
 	req.Page = 1
 	req.PageSize = 10
 
-	// Bind query parameters
 	if err := c.ShouldBindQuery(&req); err != nil {
 		common.AbortWithError(c, err)
 		return
@@ -108,5 +99,5 @@ func (h *Handler) ListImportedFiles(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, files)
+	c.JSON(common.SUCCESS_STATUS, common.ResponseOk(files))
 }

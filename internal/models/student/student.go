@@ -34,7 +34,6 @@ func (s *Student) TableName() string {
 	return common.POSTGRES_TABLE_NAME_STUDENTS
 }
 
-// StudentAddress updated to match the database schema
 type StudentAddress struct {
 	ID          uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
 	StudentID   uuid.UUID `json:"student_id" gorm:"type:uuid;not null"`
@@ -52,7 +51,6 @@ func (a *StudentAddress) TableName() string {
 	return common.POSTGRES_TABLE_NAME_STUDENT_ADDRESSES
 }
 
-// StudentDocument updated to match the database schema
 type StudentDocument struct {
 	ID             uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
 	StudentID      uuid.UUID `json:"student_id" gorm:"type:uuid;not null"`
@@ -81,7 +79,6 @@ func (s *StudentStatus) TableName() string {
 	return common.POSTGRES_TABLE_NAME_STUDENTS_STATUSES
 }
 
-// Response DTOs
 type StudentResponse struct {
 	ID               uuid.UUID            `json:"id"`
 	StudentCode      int                  `json:"student_code"`
@@ -105,7 +102,6 @@ type StudentResponse struct {
 	ProgramID        int                  `json:"program_id,omitempty"`
 }
 
-// Simplified address response for the StudentResponse
 type AddressResponse struct {
 	Street   string `json:"street"`
 	Ward     string `json:"ward"`
@@ -114,7 +110,6 @@ type AddressResponse struct {
 	Country  string `json:"country"`
 }
 
-// ID document response for the StudentResponse
 type IDDocumentResponse struct {
 	ID             uuid.UUID `json:"id"`
 	DocumentType   string    `json:"document_type"`
@@ -127,7 +122,6 @@ type IDDocumentResponse struct {
 	Notes          *string   `json:"notes"`
 }
 
-// For backward compatibility
 type StudentAddressResponse struct {
 	ID          uuid.UUID `json:"id"`
 	StudentID   uuid.UUID `json:"student_id"`
@@ -139,7 +133,6 @@ type StudentAddressResponse struct {
 	Country     string    `json:"country"`
 }
 
-// For backward compatibility
 type StudentDocumentResponse struct {
 	ID             uuid.UUID `json:"id"`
 	StudentID      uuid.UUID `json:"student_id"`
@@ -155,15 +148,14 @@ type StudentDocumentResponse struct {
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
-// Used for list views
 type StudentListResponse struct {
 	ID          uuid.UUID `json:"id"`
-	Fullname    string `json:"fullname"`
-	StudentCode int    `json:"student_code"`
-	Email       string `json:"email"`
-	FacultyID   int    `json:"faculty_id"`
-	FacultyName string `json:"faculty_name"`
-	Gender      string `json:"gender"`
+	Fullname    string    `json:"fullname"`
+	StudentCode int       `json:"student_code"`
+	Email       string    `json:"email"`
+	FacultyID   int       `json:"faculty_id"`
+	FacultyName string    `json:"faculty_name"`
+	Gender      string    `json:"gender"`
 }
 
 type ListStudentRequest struct {
@@ -174,7 +166,6 @@ type ListStudentRequest struct {
 	FacultyName string `form:"faculty_name"`
 }
 
-// ToResponse converts Student model to the detailed response
 func (s *Student) ToResponse() *StudentResponse {
 	response := &StudentResponse{
 		ID:          s.ID,
@@ -194,7 +185,6 @@ func (s *Student) ToResponse() *StudentResponse {
 		Nationality: s.Nationality,
 	}
 
-	// Process addresses by type if present
 	if len(s.Addresses) > 0 {
 		for _, addr := range s.Addresses {
 			addrResponse := &AddressResponse{
@@ -216,7 +206,6 @@ func (s *Student) ToResponse() *StudentResponse {
 		}
 	}
 
-	// Process documents if present
 	if len(s.Documents) > 0 {
 		for _, doc := range s.Documents {
 			response.IDDocuments = append(response.IDDocuments, IDDocumentResponse{
@@ -236,10 +225,9 @@ func (s *Student) ToResponse() *StudentResponse {
 	return response
 }
 
-// ToListResponse for simplified list view
 func (s *Student) ToListResponse() *StudentListResponse {
 	return &StudentListResponse{
-		ID: 		 s.ID,
+		ID:          s.ID,
 		Fullname:    s.Fullname,
 		StudentCode: s.StudentCode,
 		Email:       s.Email,
@@ -248,7 +236,6 @@ func (s *Student) ToListResponse() *StudentListResponse {
 	}
 }
 
-// For backward compatibility
 func (a *StudentAddress) ToResponse() *StudentAddressResponse {
 	return &StudentAddressResponse{
 		ID:          a.ID,
@@ -262,7 +249,6 @@ func (a *StudentAddress) ToResponse() *StudentAddressResponse {
 	}
 }
 
-// For backward compatibility
 func (d *StudentDocument) ToResponse() *StudentDocumentResponse {
 	return &StudentDocumentResponse{
 		ID:             d.ID,
@@ -280,7 +266,6 @@ func (d *StudentDocument) ToResponse() *StudentDocumentResponse {
 	}
 }
 
-// StudentRequest represents the shared fields between create and update operations
 type StudentRequest struct {
 	StudentCode *int               `json:"student_code"`
 	Fullname    *string            `json:"fullname"`
@@ -299,7 +284,6 @@ type StudentRequest struct {
 	Documents   []*DocumentRequest `json:"documents"`
 }
 
-// AddressRequest represents address fields for API operations
 type AddressRequest struct {
 	ID          uuid.UUID `json:"id,omitempty"`
 	AddressType string    `json:"address_type" binding:"required,oneof=Permanent Temporary Mailing"`
@@ -310,7 +294,6 @@ type AddressRequest struct {
 	Country     string    `json:"country" binding:"required"`
 }
 
-// DocumentRequest represents document fields for API operations
 type DocumentRequest struct {
 	ID             uuid.UUID `json:"id,omitempty"`
 	DocumentType   string    `json:"document_type" binding:"required"`
@@ -323,9 +306,47 @@ type DocumentRequest struct {
 	Notes          *string   `json:"notes"`
 }
 
-// CreateStudentRequest for student creation API - same as StudentRequest
 type CreateStudentRequest StudentRequest
 
-// UpdateStudentRequest for student update API - same as StudentRequest
-// But when handling in the service, only update fields that are provided
 type UpdateStudentRequest StudentRequest
+
+// ImportRecord represents a single record from an import file
+type ImportRecord struct {
+	Index int
+	Data  *CreateStudentRequest
+	Err   error
+}
+
+// StudentExport represents the structure for JSON export
+type StudentExport struct {
+	StudentCode      int    `json:"student_code"`
+	FullName         string `json:"full_name"`
+	Email            string `json:"email"`
+	DateOfBirth      string `json:"date_of_birth"`
+	Gender           string `json:"gender"`
+	FacultyID        int    `json:"faculty_id"`
+	FacultyName      string `json:"faculty_name"`
+	Batch            string `json:"batch"`
+	Program          string `json:"program"`
+	Address          string `json:"address"`
+	Phone            string `json:"phone"`
+	Status           string `json:"status"`
+	Nationality      string `json:"nationality"`
+	PermanentAddress string `json:"permanent_address"`
+	TemporaryAddress string `json:"temporary_address"`
+}
+
+// ImportResult represents the result of an import operation
+type ImportResult struct {
+	SuccessCount  int
+	ErrorCount    int
+	FailedRecords []FailedRecordDetail
+}
+
+// FailedRecordDetail represents details about a failed import record
+type FailedRecordDetail struct {
+	RowNumber   int
+	StudentCode string
+	Email       string
+	Error       string
+}

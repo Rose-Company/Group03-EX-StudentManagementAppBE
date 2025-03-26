@@ -10,8 +10,6 @@ type QuerySort struct {
 	Sort   string `json:"sort" form:"sort"`
 }
 
-// Parse the query string to order string (Ex: http://example.com/messages?sort=created_at.asc,updated_at.acs
-// => order string: created_at asc,updated_at acs)
 func (s QuerySort) Parse() string {
 	return strings.ReplaceAll(s.Origin, ".", " ")
 }
@@ -45,11 +43,11 @@ type FileTypeQueryRequest struct {
 
 func (q *FileTypeQueryRequest) GetFileType() string {
 	if q.Type == "" {
-		return "csv"
+		return common.FILE_TYPE_CSV
 	}
 	return q.Type
 }
 
 func (q *FileTypeQueryRequest) IsValidFileType() bool {
-	return q.Type == "" || q.Type == "csv" || q.Type == "json"
+	return q.Type == "" || q.Type == common.FILE_TYPE_JSON || q.Type == common.FILE_TYPE_CSV
 }

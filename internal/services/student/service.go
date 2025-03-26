@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"sort"
 	"strconv"
@@ -71,6 +70,7 @@ func NewStudentService(
 }
 
 func (s *studentService) GetStudentByID(ctx context.Context, id string) (*models.StudentResponse, error) {
+	log.Printf("Fetching student details for ID: %s", id)
 	var clauses []repositories.Clause
 	clauses = append(clauses, func(tx *gorm.DB) {
 		tx.Preload("Addresses", func(db *gorm.DB) *gorm.DB {
@@ -100,14 +100,15 @@ func (s *studentService) GetStudentByID(ctx context.Context, id string) (*models
 	// Get student with all related data
 	student, err := s.studentRepo.GetDetailByConditions(ctx, combinedClause)
 	if err != nil {
-		fmt.Println("ERROR: ", err)
+		log.Printf("Error fetching student with ID %s: %v", id, err)
 		return nil, err
 	}
-
+	log.Printf("Successfully fetched student details for ID: %s", id)
 	return student.ToResponse(), nil
 }
 
 func (s *studentService) GetStudentList(ctx context.Context, req *models.ListStudentRequest) (*models2.BaseListResponse, error) {
+	log.Printf("Fetching student list with filters: %+v", req)
 	if req.Sort == "" {
 		req.Sort = "student_code.asc"
 	}
@@ -172,7 +173,7 @@ func (s *studentService) GetStudentList(ctx context.Context, req *models.ListStu
 		Items:    studentResponses,
 		Extra:    nil,
 	}
-
+	log.Printf("Successfully fetched student list with %d records", len(students))
 	return response, nil
 }
 
@@ -258,7 +259,7 @@ func (s *studentService) CreateAStudent(ctx context.Context, userID string, requ
 			}
 		}
 	}
-
+	log.Printf("Successfully fetched student list ")
 	return nil
 }
 
@@ -377,7 +378,7 @@ func (s *studentService) UpdateStudent(ctx context.Context, userID string, stude
 			}
 		}
 	}
-
+	log.Printf("Student created successfully by user ID: %s", userID)
 	return nil
 }
 
@@ -397,12 +398,12 @@ func (s *studentService) DeleteStudentByID(ctx context.Context, userID string, s
 		})
 		return err
 	}
-
-	logger.Info("Student deleted successfully")
+	log.Printf("Student deleted successfully with ID: %s by user ID: %s", studentID, userID)
 	return nil
 }
 
 func (s *studentService) GetStudentStatuses(ctx context.Context, req *student_status_models.ListStudentStatusRequest) ([]*models.StudentStatus, error) {
+	log.Printf("Fetching student statuses with filters: %+v", req)
 
 	// Pass any filter conditions if needed
 	var clauses []repositories.Clause
@@ -428,9 +429,10 @@ func (s *studentService) GetStudentStatuses(ctx context.Context, req *student_st
 	// Query with proper parameters
 	studentStatus, err := s.studentStatusRepo.List(ctx, models2.QueryParams{}, combinedClause)
 	if err != nil {
-		log.WithError(err).Error("Failed to retrieve student statuses")
+		log.Printf("Error fetching student statuses: %v", err)
 		return nil, err
 	}
+	log.Printf("Successfully fetched %d student statuses", len(studentStatus))
 
 	// Map studentStatus to the expected type
 	var result []*models.StudentStatus
@@ -442,6 +444,7 @@ func (s *studentService) GetStudentStatuses(ctx context.Context, req *student_st
 	}
 	return result, nil
 }
+
 func (s *studentService) CreateStudentStatus(ctx context.Context, req *student_status_models.CreateStudentStatusRequest) error {
 
 	studentStatus := &student_status_models.StudentStatus{
@@ -452,10 +455,12 @@ func (s *studentService) CreateStudentStatus(ctx context.Context, req *student_s
 	if err != nil {
 		return err
 	}
+	log.Printf("Student status created successfully")
 	return nil
 }
 
 func (s *studentService) UpdateStudentStatus(ctx context.Context, id string, req *student_status_models.UpdateStudentStatusRequest) (*models.StudentStatus, error) {
+	log.Printf("Updating student status with ID: %s", id)
 	studentStatus := &models.StudentStatus{
 		Name: req.Name,
 	}
@@ -464,8 +469,10 @@ func (s *studentService) UpdateStudentStatus(ctx context.Context, id string, req
 	}
 	updatedStudentStatus, err := s.studentStatusRepo.Update(ctx, id, convertedStudentStatus)
 	if err != nil {
+		log.Printf("Error updating student status with ID %s: %v", id, err)
 		return nil, err
 	}
+	log.Printf("Student status updated successfully with ID: %s", id)
 	return &models.StudentStatus{
 		ID:   updatedStudentStatus.ID,
 		Name: updatedStudentStatus.Name,
@@ -473,7 +480,13 @@ func (s *studentService) UpdateStudentStatus(ctx context.Context, id string, req
 }
 
 func (s *studentService) DeleteStudentStatus(ctx context.Context, id string) error {
-	return s.studentStatusRepo.DeleteByID(ctx, id)
+	log.Printf("Deleting student status with ID: %s", id)
+	if err := s.studentStatusRepo.DeleteByID(ctx, id); err != nil {
+		log.Printf("Error deleting student status with ID %s: %v", id, err)
+		return err
+	}
+	log.Printf("Student status deleted successfully with ID: %s", id)
+	return nil
 }
 
 // Main import function that handles different file types
@@ -521,11 +534,11 @@ func (s *studentService) ImportStudentsFromFile(ctx context.Context, userID stri
 	contentReader := bytes.NewReader(bodyBytes)
 
 	// First try to determine file type from content
-	fileType := determineFileTypeFromContent(contentReader)
+	fileType := common.DetermineFileTypeFromContent(contentReader)
 
 	// If couldn't determine from content, try URL and headers
-	if fileType == "unknown" {
-		fileType = determineFileTypeFromMetadata(fileURL, resp.Header)
+	if fileType == common.FILE_TYPE_UNKNOWN {
+		fileType = common.DetermineFileTypeFromMetadata(fileURL, resp.Header)
 	}
 
 	logger.WithField("fileType", fileType).Info("Determined file type")
@@ -538,19 +551,19 @@ func (s *studentService) ImportStudentsFromFile(ctx context.Context, userID stri
 	var processErr error
 
 	switch fileType {
-	case "csv":
-		result, processErr = s.processCSVFile(ctx, userID, contentReader, logger)
-	case "json":
-		result, processErr = s.processJSONFile(ctx, userID, contentReader, logger)
+	case common.FILE_TYPE_CSV:
+		result, processErr = s.processImportFile(ctx, userID, contentReader, fileType, logger)
+	case common.FILE_TYPE_JSON:
+		result, processErr = s.processImportFile(ctx, userID, contentReader, fileType, logger)
 	default:
 		// For Google Drive, make one more attempt with CSV since it's common
 		if strings.Contains(fileURL, "drive.google.com") || strings.Contains(fileURL, "docs.google.com") {
 			contentReader.Seek(0, io.SeekStart)
 			logger.Info("Trying CSV processing for Google Drive file")
-			result, processErr = s.processCSVFile(ctx, userID, contentReader, logger)
+			result, processErr = s.processImportFile(ctx, userID, contentReader, fileType, logger)
 		} else {
 			logger.Error("Unsupported file type")
-			return nil, common.ErrInvalidFormat
+			return nil, common.ErrInvalidFileFormat
 		}
 	}
 
@@ -561,145 +574,39 @@ func (s *studentService) ImportStudentsFromFile(ctx context.Context, userID stri
 	return result, nil
 }
 
-// determineFileTypeFromContent analyzes the content to determine file type
-func determineFileTypeFromContent(reader io.ReadSeeker) string {
-	// Save original position
-	currentPosition, err := reader.Seek(0, io.SeekCurrent)
+// Process files with goroutines for concurrent processing
+func (s *studentService) processImportFile(ctx context.Context, userID string, reader io.Reader, fileType string, logger *log.Entry) (*admin_models.ImportResult, error) {
+	// Parse input data based on file type
+	var records []models.ImportRecord
+	var err error
+
+	switch fileType {
+	case common.FILE_TYPE_CSV:
+		records, err = s.parseCSVData(reader, logger)
+	case common.FILE_TYPE_JSON:
+		records, err = s.parseJSONData(reader, logger)
+	default:
+		return nil, common.ErrInvalidFileFormat
+	}
+
 	if err != nil {
-		return "unknown"
-	}
-	defer reader.Seek(currentPosition, io.SeekStart) // Restore position afterward
-
-	// Read first 1024 bytes to analyze
-	buf := make([]byte, 1024)
-	n, err := reader.Read(buf)
-	if err != nil && err != io.EOF {
-		return "unknown"
+		return nil, err
 	}
 
-	sample := buf[:n]
-
-	// Check if it's JSON by looking for JSON structure
-	trimmedSample := bytes.TrimSpace(sample)
-	if len(trimmedSample) > 0 {
-		firstChar := trimmedSample[0]
-		if (firstChar == '{' && bytes.Contains(trimmedSample, []byte{':'})) ||
-			(firstChar == '[' && bytes.Contains(trimmedSample, []byte{'{'})) {
-			return "json"
-		}
-	}
-
-	// Check if it looks like CSV by looking for comma-separated values and newlines
-	// Count commas and newlines to ensure it's consistent with CSV format
-	commaCount := bytes.Count(sample, []byte{','})
-	newlineCount := bytes.Count(sample, []byte{'\n'})
-
-	// Only consider it CSV if there are reasonable comma counts per line (at least one comma)
-	// and more than one line
-	if newlineCount > 0 && commaCount > 0 && commaCount/newlineCount >= 1 {
-		// Check if first line looks like a header (no numeric values)
-		lines := bytes.Split(sample, []byte{'\n'})
-		if len(lines) > 0 {
-			firstLine := lines[0]
-			// Check if first line has commas and doesn't look like numeric data
-			if bytes.Contains(firstLine, []byte{','}) &&
-				!bytes.ContainsAny(firstLine, "0123456789") {
-				return "csv"
-			}
-		}
-
-		// Even without clear header, if it has commas and lines, likely CSV
-		return "csv"
-	}
-
-	// Default
-	return "unknown"
-}
-
-// determineFileTypeFromMetadata examines URL and headers for file type clues
-func determineFileTypeFromMetadata(fileURL string, headers http.Header) string {
-	// Try to determine from URL
-	lowerURL := strings.ToLower(fileURL)
-	if strings.HasSuffix(lowerURL, ".csv") {
-		return "csv"
-	} else if strings.HasSuffix(lowerURL, ".json") {
-		return "json"
-	}
-
-	// Look for content disposition header which might have filename
-	contentDisposition := headers.Get("Content-Disposition")
-	if contentDisposition != "" {
-		if strings.Contains(strings.ToLower(contentDisposition), ".csv") {
-			return "csv"
-		} else if strings.Contains(strings.ToLower(contentDisposition), ".json") {
-			return "json"
-		}
-	}
-
-	// Check content type
-	contentType := headers.Get("Content-Type")
-	if strings.Contains(contentType, "csv") || strings.Contains(contentType, "text/comma-separated-values") {
-		return "csv"
-	} else if strings.Contains(contentType, "json") || strings.Contains(contentType, "application/json") {
-		return "json"
-	} else if strings.Contains(contentType, "text/plain") {
-		// Many CSVs are served as text/plain
-		return "csv"
-	}
-
-	// Default
-	return "unknown"
-}
-
-// Process CSV files with goroutines for concurrent processing
-func (s *studentService) processCSVFile(ctx context.Context, userID string, reader io.Reader, logger *log.Entry) (*admin_models.ImportResult, error) {
-	// Create CSV reader
-	csvReader := csv.NewReader(reader)
-
-	// Read headers
-	headers, err := csvReader.Read()
-	if err != nil {
-		logger.WithError(err).Error("Failed to read CSV headers")
-		return nil, fmt.Errorf("failed to read CSV headers: %w", err)
-	}
-
-	// Map column indices
-	headerMap := make(map[string]int)
-	for i, header := range headers {
-		headerMap[strings.ToLower(strings.TrimSpace(header))] = i
-	}
-
-	// Verify required columns - only check essential columns
-	requiredColumns := []string{"studentcode", "fullname", "email"}
-	for _, col := range requiredColumns {
-		if _, ok := headerMap[col]; !ok {
-			logger.WithField("missingColumn", col).Error("CSV is missing required column")
-			return nil, fmt.Errorf("CSV is missing required column: %s", col)
-		}
-	}
-
-	// Read all rows
-	rows, err := csvReader.ReadAll()
-	if err != nil {
-		logger.WithError(err).Error("Failed to read CSV rows")
-		return nil, fmt.Errorf("failed to read CSV rows: %w", err)
-	}
-
-	// Setup concurrency controls
-	totalRows := len(rows)
-	logger.WithField("totalRows", totalRows).Info("Starting concurrent processing of student records")
+	totalRecords := len(records)
+	logger.WithFields(log.Fields{
+		"fileType":     fileType,
+		"totalRecords": totalRecords,
+	}).Info("Starting concurrent processing of records")
 
 	// Variables for tracking results
 	var (
-		successCount int32 = 0
-		errorCount   int32 = 0
-		mu           sync.Mutex
-		wg           sync.WaitGroup
-		maxWorkers   = 10 // Adjust based on your system capabilities
-		rowChan      = make(chan struct {
-			rowNum int
-			row    []string
-		}, maxWorkers)
+		successCount  int32 = 0
+		errorCount    int32 = 0
+		mu            sync.Mutex
+		wg            sync.WaitGroup
+		maxWorkers    = 10 // Adjust based on your system capabilities
+		recordChan    = make(chan models.ImportRecord, maxWorkers)
 		failedRecords = make([]admin_models.FailedRecordDetail, 0)
 	)
 
@@ -707,86 +614,106 @@ func (s *studentService) processCSVFile(ctx context.Context, userID string, read
 	for i := 0; i < maxWorkers; i++ {
 		wg.Add(1)
 		go func(workerID int) {
-			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					logger.WithField("recover", r).Error("Recovered from panic in worker goroutine")
+					atomic.AddInt32(&errorCount, 1)
+				}
+				wg.Done()
+			}()
+
 			workerLogger := logger.WithField("workerID", workerID)
 
-			for job := range rowChan {
-				rowNum := job.rowNum
-				row := job.row
-
-				// Create student request from row
-				studentReq, err := s.createStudentRequestFromCSV(row, headerMap)
-				if err != nil {
+			for record := range recordChan {
+				// If record already has an error from parsing, log it and continue
+				if record.Err != nil {
 					atomic.AddInt32(&errorCount, 1)
 					mu.Lock()
 					failedRecords = append(failedRecords, admin_models.FailedRecordDetail{
-						RowNumber: rowNum,
-						Error:     fmt.Sprintf("Failed to parse row: %v", err),
+						RowNumber: record.Index + 1,
+						Error:     record.Err.Error(),
 					})
 					mu.Unlock()
-					workerLogger.WithError(err).WithField("rowNum", rowNum).Warn("Error creating student from CSV row, skipping")
 					continue
 				}
 
-				// Create student
-				err = s.CreateAStudent(ctx, userID, studentReq)
+				// Double-check required fields
+				if record.Data == nil || record.Data.StudentCode == nil || record.Data.Fullname == nil || record.Data.Email == nil {
+					atomic.AddInt32(&errorCount, 1)
+					mu.Lock()
+					failedRecords = append(failedRecords, admin_models.FailedRecordDetail{
+						RowNumber: record.Index + 1,
+						Error:     "Missing required fields after parsing",
+					})
+					mu.Unlock()
+					workerLogger.WithField("recordIndex", record.Index).Warn("Missing required fields after parsing, skipping")
+					continue
+				}
+
+				// Create student with panic protection
+				var err error
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							err = fmt.Errorf("panic while creating student: %v", r)
+						}
+					}()
+					err = s.CreateAStudent(ctx, userID, record.Data)
+				}()
+
 				if err != nil {
 					atomic.AddInt32(&errorCount, 1)
 					mu.Lock()
 					failedRecords = append(failedRecords, admin_models.FailedRecordDetail{
-						RowNumber:   rowNum,
-						StudentCode: fmt.Sprintf("%d", *studentReq.StudentCode),
-						Email:       *studentReq.Email,
+						RowNumber:   record.Index + 1,
+						StudentCode: fmt.Sprintf("%d", *record.Data.StudentCode),
+						Email:       *record.Data.Email,
 						Error:       fmt.Sprintf("Database error: %v", err),
 					})
 					mu.Unlock()
 					workerLogger.WithError(err).WithFields(log.Fields{
-						"rowNum":      rowNum,
-						"studentCode": *studentReq.StudentCode,
-						"email":       *studentReq.Email,
+						"recordIndex": record.Index,
+						"studentCode": *record.Data.StudentCode,
+						"email":       *record.Data.Email,
 					}).Warn("Error creating student, skipping")
 					continue
 				}
 
 				atomic.AddInt32(&successCount, 1)
 				workerLogger.WithFields(log.Fields{
-					"rowNum":      rowNum,
-					"studentCode": *studentReq.StudentCode,
-					"email":       *studentReq.Email,
+					"recordIndex": record.Index,
+					"studentCode": *record.Data.StudentCode,
+					"email":       *record.Data.Email,
 				}).Info("Successfully created student")
 			}
 		}(i)
 	}
 
-	// Send rows to workers
-	for i, row := range rows {
-		rowNum := i + 2 // +2 because row 0 is header and we're 1-indexed for human readability
-		rowChan <- struct {
-			rowNum int
-			row    []string
-		}{rowNum: rowNum, row: row}
+	// Send records to workers
+	for i, record := range records {
+		recordChan <- record
 
 		// Log progress periodically
-		if (i+1)%100 == 0 || i+1 == totalRows {
+		if (i+1)%100 == 0 || i+1 == totalRecords {
 			logger.WithFields(log.Fields{
-				"progress": fmt.Sprintf("%d/%d", i+1, totalRows),
-				"percent":  fmt.Sprintf("%.1f%%", float64(i+1)/float64(totalRows)*100),
+				"progress": fmt.Sprintf("%d/%d", i+1, totalRecords),
+				"percent":  fmt.Sprintf("%.1f%%", float64(i+1)/float64(totalRecords)*100),
 			}).Info("Import progress")
 		}
 	}
 
-	// Close channel when all rows are sent
-	close(rowChan)
+	// Close channel when all records are sent
+	close(recordChan)
 
 	// Wait for all workers to finish
 	wg.Wait()
 
 	// Log completion
 	logger.WithFields(log.Fields{
-		"totalRows":    totalRows,
+		"totalRecords": totalRecords,
 		"successCount": successCount,
 		"errorCount":   errorCount,
-	}).Info("Completed processing CSV file")
+	}).Info("Completed processing file")
 
 	// Sort failed records by row number for easier reading
 	sort.Slice(failedRecords, func(i, j int) bool {
@@ -802,10 +729,54 @@ func (s *studentService) processCSVFile(ctx context.Context, userID string, read
 	return result, nil
 }
 
-// Process JSON files with goroutines for concurrent processing
-// Refactored JSON processing function with improved error handling
-func (s *studentService) processJSONFile(ctx context.Context, userID string, reader io.Reader, logger *log.Entry) (*admin_models.ImportResult, error) {
-	// Read JSON data
+// Update the parseCSVData function to use models.ImportRecord
+func (s *studentService) parseCSVData(reader io.Reader, logger *log.Entry) ([]models.ImportRecord, error) {
+	csvReader := csv.NewReader(reader)
+
+	// Read headers
+	headers, err := csvReader.Read()
+	if err != nil {
+		logger.WithError(err).Error("Failed to read CSV headers")
+		return nil, fmt.Errorf("failed to read CSV headers: %w", err)
+	}
+
+	// Map column indices
+	headerMap := make(map[string]int)
+	for i, header := range headers {
+		headerMap[strings.ToLower(strings.TrimSpace(header))] = i
+	}
+
+	// Verify required columns
+	requiredColumns := []string{"studentcode", "fullname", "email"}
+	for _, col := range requiredColumns {
+		if _, ok := headerMap[col]; !ok {
+			logger.WithField("missingColumn", col).Error("CSV is missing required column")
+			return nil, fmt.Errorf("CSV is missing required column: %s", col)
+		}
+	}
+
+	// Read all rows
+	rows, err := csvReader.ReadAll()
+	if err != nil {
+		logger.WithError(err).Error("Failed to read CSV rows")
+		return nil, fmt.Errorf("failed to read CSV rows: %w", err)
+	}
+
+	records := make([]models.ImportRecord, len(rows))
+	for i, row := range rows {
+		studentReq, err := s.createStudentRequestFromCSV(row, headerMap)
+		records[i] = models.ImportRecord{
+			Index: i + 1, // +1 for human-readable indexing
+			Data:  studentReq,
+			Err:   err,
+		}
+	}
+
+	return records, nil
+}
+
+// Update the parseJSONData function to use models.ImportRecord
+func (s *studentService) parseJSONData(reader io.Reader, logger *log.Entry) ([]models.ImportRecord, error) {
 	var studentsData []map[string]interface{}
 	decoder := json.NewDecoder(reader)
 	err := decoder.Decode(&studentsData)
@@ -814,262 +785,92 @@ func (s *studentService) processJSONFile(ctx context.Context, userID string, rea
 		return nil, fmt.Errorf("failed to decode JSON data: %w", err)
 	}
 
-	totalRecords := len(studentsData)
-	logger.WithField("totalRecords", totalRecords).Info("Starting concurrent processing of JSON records")
-
-	// Variables for tracking results
-	var (
-		successCount int32 = 0
-		errorCount   int32 = 0
-		mu           sync.Mutex
-		wg           sync.WaitGroup
-		maxWorkers   = 10 // Adjust based on your system capabilities
-		dataChan     = make(chan struct {
-			index int
-			data  map[string]interface{}
-		}, maxWorkers)
-		failedRecords = make([]admin_models.FailedRecordDetail, 0)
-	)
-
-	// Create worker pool
-	for i := 0; i < maxWorkers; i++ {
-		wg.Add(1)
-		go func(workerID int) {
-			defer func() {
-				// Recover from panics in goroutines
-				if r := recover(); r != nil {
-					logger.WithField("recover", r).Error("Recovered from panic in worker goroutine")
-					atomic.AddInt32(&errorCount, 1)
-				}
-				wg.Done()
-			}()
-
-			workerLogger := logger.WithField("workerID", workerID)
-
-			for job := range dataChan {
-				index := job.index
-				data := job.data
-
-				// Skip nil or empty data
-				if data == nil || len(data) == 0 {
-					atomic.AddInt32(&errorCount, 1)
-					mu.Lock()
-					failedRecords = append(failedRecords, admin_models.FailedRecordDetail{
-						RowNumber: index + 1, // +1 for human-readable indexing
-						Error:     "Empty or nil record data",
-					})
-					mu.Unlock()
-					continue
-				}
-
-				// Convert JSON record to CreateStudentRequest with panic protection
-				var studentReq *models.CreateStudentRequest
-				var err error
-
-				func() {
-					defer func() {
-						if r := recover(); r != nil {
-							err = fmt.Errorf("panic while parsing JSON data: %v", r)
-						}
-					}()
-					studentReq, err = s.createStudentRequestFromJSON(data)
-				}()
-
-				if err != nil {
-					atomic.AddInt32(&errorCount, 1)
-					mu.Lock()
-					failedRecords = append(failedRecords, admin_models.FailedRecordDetail{
-						RowNumber: index + 1, // +1 for human-readable indexing
-						Error:     fmt.Sprintf("Failed to parse data: %v", err),
-					})
-					mu.Unlock()
-					workerLogger.WithError(err).WithField("recordIndex", index).Warn("Error creating student from JSON data, skipping")
-					continue
-				}
-
-				// Double-check required fields before proceeding
-				if studentReq == nil || studentReq.StudentCode == nil || studentReq.Fullname == nil || studentReq.Email == nil {
-					atomic.AddInt32(&errorCount, 1)
-					mu.Lock()
-					failedRecords = append(failedRecords, admin_models.FailedRecordDetail{
-						RowNumber: index + 1,
-						Error:     "Missing required fields after parsing",
-					})
-					mu.Unlock()
-					workerLogger.WithField("recordIndex", index).Warn("Missing required fields after parsing JSON data, skipping")
-					continue
-				}
-
-				// Create student with panic protection
-				func() {
-					defer func() {
-						if r := recover(); r != nil {
-							err = fmt.Errorf("panic while creating student: %v", r)
-						}
-					}()
-					err = s.CreateAStudent(ctx, userID, studentReq)
-				}()
-
-				if err != nil {
-					atomic.AddInt32(&errorCount, 1)
-					mu.Lock()
-					failedRecords = append(failedRecords, admin_models.FailedRecordDetail{
-						RowNumber:   index + 1,
-						StudentCode: fmt.Sprintf("%d", *studentReq.StudentCode),
-						Email:       *studentReq.Email,
-						Error:       fmt.Sprintf("Database error: %v", err),
-					})
-					mu.Unlock()
-					workerLogger.WithError(err).WithFields(log.Fields{
-						"recordIndex": index,
-						"studentCode": *studentReq.StudentCode,
-						"email":       *studentReq.Email,
-					}).Warn("Error creating student, skipping")
-					continue
-				}
-
-				atomic.AddInt32(&successCount, 1)
-				workerLogger.WithFields(log.Fields{
-					"recordIndex": index,
-					"studentCode": *studentReq.StudentCode,
-					"email":       *studentReq.Email,
-				}).Info("Successfully created student")
-			}
-		}(i)
-	}
-
-	// Send data to workers
+	records := make([]models.ImportRecord, len(studentsData))
 	for i, data := range studentsData {
-		dataChan <- struct {
-			index int
-			data  map[string]interface{}
-		}{index: i, data: data}
+		if data == nil || len(data) == 0 {
+			records[i] = models.ImportRecord{
+				Index: i,
+				Err:   fmt.Errorf("empty or nil record data"),
+			}
+			continue
+		}
 
-		// Log progress periodically
-		if (i+1)%100 == 0 || i+1 == totalRecords {
-			logger.WithFields(log.Fields{
-				"progress": fmt.Sprintf("%d/%d", i+1, totalRecords),
-				"percent":  fmt.Sprintf("%.1f%%", float64(i+1)/float64(totalRecords)*100),
-			}).Info("Import progress")
+		studentReq, err := s.createStudentRequestFromJSON(data)
+		records[i] = models.ImportRecord{
+			Index: i,
+			Data:  studentReq,
+			Err:   err,
 		}
 	}
 
-	// Close channel when all data is sent
-	close(dataChan)
-
-	// Wait for all workers to finish
-	wg.Wait()
-
-	// Log completion
-	logger.WithFields(log.Fields{
-		"totalRecords": totalRecords,
-		"successCount": successCount,
-		"errorCount":   errorCount,
-	}).Info("Completed processing JSON file")
-
-	// Sort failed records by index for easier reading
-	sort.Slice(failedRecords, func(i, j int) bool {
-		return failedRecords[i].RowNumber < failedRecords[j].RowNumber
-	})
-
-	result := &admin_models.ImportResult{
-		SuccessCount:  int(successCount),
-		ErrorCount:    int(errorCount),
-		FailedRecords: failedRecords,
-	}
-
-	return result, nil
+	return records, nil
 }
 
-// Helper function to create student request from CSV row
-func (s *studentService) createStudentRequestFromCSV(row []string, headerMap map[string]int) (*models.CreateStudentRequest, error) {
-	// Helper function to safely get column value
-	getCol := func(name string) *string {
-		if idx, ok := headerMap[name]; ok && idx < len(row) {
-			value := strings.TrimSpace(row[idx])
-			if value != "" {
-				return &value
-			}
+// Helper functions for CSV parsing
+func (s *studentService) getCSVColumnValue(row []string, headerMap map[string]int, name string) *string {
+	if idx, ok := headerMap[name]; ok && idx < len(row) {
+		value := strings.TrimSpace(row[idx])
+		if value != "" {
+			return &value
 		}
-		return nil
 	}
+	return nil
+}
 
-	// Helper function to parse date
-	parseDate := func(name string) *time.Time {
-		if idx, ok := headerMap[name]; ok && idx < len(row) {
-			dateStr := strings.TrimSpace(row[idx])
-			if dateStr != "" {
-				// Try different date formats
-				formats := []string{
-					"2006-01-02",
-					"01/02/2006",
-					"02/01/2006",
-					"2006/01/02",
-				}
-
-				for _, format := range formats {
-					date, err := time.Parse(format, dateStr)
-					if err == nil {
-						return &date
-					}
-				}
+func (s *studentService) parseCSVDate(row []string, headerMap map[string]int, name string) *time.Time {
+	if idx, ok := headerMap[name]; ok && idx < len(row) {
+		dateStr := strings.TrimSpace(row[idx])
+		if dateStr != "" {
+			formats := []string{
+				"2006-01-02",
+				"01/02/2006",
+				"02/01/2006",
+				"2006/01/02",
 			}
-		}
-		return nil
-	}
 
-	// Helper function to parse int
-	parseInt := func(name string) *int {
-		if idx, ok := headerMap[name]; ok && idx < len(row) {
-			numStr := strings.TrimSpace(row[idx])
-			if numStr != "" {
-				num, err := strconv.Atoi(numStr)
+			for _, format := range formats {
+				date, err := time.Parse(format, dateStr)
 				if err == nil {
-					return &num
+					return &date
 				}
 			}
 		}
-		return nil
 	}
+	return nil
+}
 
-	// Helper function to parse bool
-	parseBool := func(name string) *bool {
-		if idx, ok := headerMap[name]; ok && idx < len(row) {
-			boolStr := strings.ToLower(strings.TrimSpace(row[idx]))
-			if boolStr != "" {
-				var boolVal bool
-				if boolStr == "true" || boolStr == "yes" || boolStr == "1" {
-					boolVal = true
-					return &boolVal
-				} else if boolStr == "false" || boolStr == "no" || boolStr == "0" {
-					boolVal = false
-					return &boolVal
-				}
+func (s *studentService) parseCSVInt(row []string, headerMap map[string]int, name string) *int {
+	if idx, ok := headerMap[name]; ok && idx < len(row) {
+		numStr := strings.TrimSpace(row[idx])
+		if numStr != "" {
+			num, err := strconv.Atoi(numStr)
+			if err == nil {
+				return &num
 			}
 		}
-		return nil
 	}
+	return nil
+}
 
-	// Create student request
-	req := &models.CreateStudentRequest{
-		StudentCode: parseInt("studentcode"),
-		Fullname:    getCol("fullname"),
-		Email:       getCol("email"),
-		DateOfBirth: parseDate("dateofbirth"),
-		Gender:      getCol("gender"),
-		FacultyID:   parseInt("facultyid"),
-		Batch:       getCol("batch"),
-		Program:     getCol("program"),
-		Address:     getCol("address"),
-		Phone:       getCol("phone"),
-		StatusID:    parseInt("statusid"),
-		ProgramID:   parseInt("programid"),
-		Nationality: getCol("nationality"),
-		Addresses:   nil,
-		Documents:   nil,
+func (s *studentService) parseCSVBool(row []string, headerMap map[string]int, name string) *bool {
+	if idx, ok := headerMap[name]; ok && idx < len(row) {
+		boolStr := strings.ToLower(strings.TrimSpace(row[idx]))
+		if boolStr != "" {
+			var boolVal bool
+			if boolStr == "true" || boolStr == "yes" || boolStr == "1" {
+				boolVal = true
+				return &boolVal
+			} else if boolStr == "false" || boolStr == "no" || boolStr == "0" {
+				boolVal = false
+				return &boolVal
+			}
+		}
 	}
+	return nil
+}
 
-	// Process addresses if columns exist
+func (s *studentService) processCSVAddresses(row []string, headerMap map[string]int) []*models.AddressRequest {
+	var addresses []*models.AddressRequest
 	addressPrefixes := []string{"permanent", "temporary", "mailing"}
 
 	for _, prefix := range addressPrefixes {
@@ -1084,49 +885,42 @@ func (s *studentService) createStudentRequestFromCSV(row []string, headerMap map
 
 		if hasType {
 			addressType := strings.Title(prefix)
-
-			address := &models.AddressRequest{
-				AddressType: addressType,
-				Street: func() string {
-					if val := getCol(prefix + "street"); val != nil {
-						return *val
-					}
-					return ""
-				}(),
-				Ward: func() string {
-					if val := getCol(prefix + "ward"); val != nil {
-						return *val
-					}
-					return ""
-				}(),
-				District: func() string {
-					if val := getCol(prefix + "district"); val != nil {
-						return *val
-					}
-					return ""
-				}(),
-				City: func() string {
-					if val := getCol(prefix + "city"); val != nil {
-						return *val
-					}
-					return ""
-				}(),
-				Country: func() string {
-					if val := getCol(prefix + "country"); val != nil {
-						return *val
-					}
-					return "Vietnam" // Default country
-				}(),
-			}
-
-			// Only add if we have at least street and city
-			if address.Street != "" && address.City != "" {
-				req.Addresses = append(req.Addresses, address)
+			address := s.createAddressFromCSV(row, headerMap, prefix, addressType)
+			if address != nil && address.Street != "" && address.City != "" {
+				addresses = append(addresses, address)
 			}
 		}
 	}
 
-	// Process documents if columns exist
+	return addresses
+}
+
+func (s *studentService) createAddressFromCSV(row []string, headerMap map[string]int, prefix string, addressType string) *models.AddressRequest {
+	getVal := func(field string) string {
+		if val := s.getCSVColumnValue(row, headerMap, prefix+field); val != nil {
+			return *val
+		}
+		return ""
+	}
+
+	address := &models.AddressRequest{
+		AddressType: addressType,
+		Street:      getVal("street"),
+		Ward:        getVal("ward"),
+		District:    getVal("district"),
+		City:        getVal("city"),
+		Country:     getVal("country"),
+	}
+
+	if address.Country == "" {
+		address.Country = "Vietnam" // Default country
+	}
+
+	return address
+}
+
+func (s *studentService) processCSVDocuments(row []string, headerMap map[string]int) []*models.DocumentRequest {
+	var documents []*models.DocumentRequest
 	documentPrefixes := []string{"cccd", "cmnd", "passport"}
 
 	for _, prefix := range documentPrefixes {
@@ -1140,255 +934,144 @@ func (s *studentService) createStudentRequestFromCSV(row []string, headerMap map
 		}
 
 		if hasType {
-			documentType := strings.ToUpper(prefix)
-
-			documentNumber := getCol(prefix + "number")
-			if documentNumber != nil {
-				document := &models.DocumentRequest{
-					DocumentType:   documentType,
-					DocumentNumber: *documentNumber,
-					IssueDate: func() time.Time {
-						if date := parseDate(prefix + "issuedate"); date != nil {
-							return *date
-						}
-						return time.Time{}
-					}(),
-					ExpiryDate: func() time.Time {
-						if date := parseDate(prefix + "expirydate"); date != nil {
-							return *date
-						}
-						return time.Time{}
-					}(),
-					IssuePlace: func() string {
-						if place := getCol(prefix + "issueplace"); place != nil {
-							return *place
-						}
-						return ""
-					}(),
-					CountryOfIssue: func() string {
-						if country := getCol(prefix + "country"); country != nil {
-							return *country
-						}
-						return "Vietnam" // Default country
-					}(),
-					HasChip: func() bool {
-						if chip := parseBool(prefix + "haschip"); chip != nil {
-							return *chip
-						}
-						return false
-					}(),
-				}
-
-				// Add notes if available
-				notes := getCol(prefix + "notes")
-				if notes != nil {
-					document.Notes = notes
-				}
-
-				req.Documents = append(req.Documents, document)
+			document := s.createDocumentFromCSV(row, headerMap, prefix)
+			if document != nil && document.DocumentNumber != "" {
+				documents = append(documents, document)
 			}
 		}
 	}
 
-	// Validate required fields
-	if req.StudentCode == nil || req.Fullname == nil || req.Email == nil {
-		return nil, fmt.Errorf("missing required fields: studentCode, fullname, or email")
-	}
-
-	// Set default status if not provided
-	if req.StatusID == nil {
-		defaultStatus := 1 // Assuming 1 is "Active" or the default status
-		req.StatusID = &defaultStatus
-	}
-
-	return req, nil
+	return documents
 }
 
-// Helper function to create student request from JSON data
-func (s *studentService) createStudentRequestFromJSON(data map[string]interface{}) (*models.CreateStudentRequest, error) {
-	// Debug logging
-	jsonBytes, _ := json.Marshal(data)
-	log.WithField("data", string(jsonBytes)).Debug("Processing JSON record")
-
-	// Helper function to get string value with case-insensitive key matching and nil protection
-	getString := func(key string) *string {
-		// Try various key formats with nil protection
-		possibleKeys := []string{
-			key,                                // Original
-			strings.ToUpper(key[:1]) + key[1:], // PascalCase
-			strings.ToLower(key),               // lowercase
-		}
-
-		for _, k := range possibleKeys {
-			if val, ok := data[k]; ok && val != nil {
-				if strVal, ok := val.(string); ok && strVal != "" {
-					return &strVal
-				} else if numVal, ok := val.(float64); ok {
-					// Convert numeric to string if needed
-					strVal := fmt.Sprintf("%v", numVal)
-					return &strVal
-				}
-			}
-		}
+func (s *studentService) createDocumentFromCSV(row []string, headerMap map[string]int, prefix string) *models.DocumentRequest {
+	documentNumber := s.getCSVColumnValue(row, headerMap, prefix+"number")
+	if documentNumber == nil {
 		return nil
 	}
 
-	// Helper function to get int value with case-insensitive key matching and nil protection
-	getInt := func(key string) *int {
-		// Try various key formats with nil protection
-		possibleKeys := []string{
-			key,                                // Original
-			strings.ToUpper(key[:1]) + key[1:], // PascalCase
-			strings.ToLower(key),               // lowercase
-		}
+	document := &models.DocumentRequest{
+		DocumentType:   strings.ToUpper(prefix),
+		DocumentNumber: *documentNumber,
+		IssueDate:      time.Time{},
+		ExpiryDate:     time.Time{},
+		CountryOfIssue: func() string {
+			if val := s.getCSVColumnValue(row, headerMap, prefix+"country"); val != nil {
+				return *val
+			}
+			return "Vietnam"
+		}(),
+		HasChip: func() bool {
+			if val := s.parseCSVBool(row, headerMap, prefix+"haschip"); val != nil {
+				return *val
+			}
+			return false
+		}(),
+	}
 
-		for _, k := range possibleKeys {
-			if val, ok := data[k]; ok && val != nil {
-				switch v := val.(type) {
-				case float64:
-					intVal := int(v)
+	if date := s.parseCSVDate(row, headerMap, prefix+"issuedate"); date != nil {
+		document.IssueDate = *date
+	}
+	if date := s.parseCSVDate(row, headerMap, prefix+"expirydate"); date != nil {
+		document.ExpiryDate = *date
+	}
+	if place := s.getCSVColumnValue(row, headerMap, prefix+"issueplace"); place != nil {
+		document.IssuePlace = *place
+	}
+	document.Notes = s.getCSVColumnValue(row, headerMap, prefix+"notes")
+
+	return document
+}
+
+// Helper functions for JSON parsing
+func (s *studentService) getJSONString(data map[string]interface{}, key string) *string {
+	possibleKeys := []string{
+		key,
+		strings.ToUpper(key[:1]) + key[1:],
+		strings.ToLower(key),
+	}
+
+	for _, k := range possibleKeys {
+		if val, ok := data[k]; ok && val != nil {
+			if strVal, ok := val.(string); ok && strVal != "" {
+				return &strVal
+			} else if numVal, ok := val.(float64); ok {
+				strVal := fmt.Sprintf("%v", numVal)
+				return &strVal
+			}
+		}
+	}
+	return nil
+}
+
+func (s *studentService) getJSONInt(data map[string]interface{}, key string) *int {
+	possibleKeys := []string{
+		key,
+		strings.ToUpper(key[:1]) + key[1:],
+		strings.ToLower(key),
+	}
+
+	for _, k := range possibleKeys {
+		if val, ok := data[k]; ok && val != nil {
+			switch v := val.(type) {
+			case float64:
+				intVal := int(v)
+				return &intVal
+			case int:
+				return &v
+			case string:
+				intVal, err := strconv.Atoi(v)
+				if err == nil {
 					return &intVal
-				case int:
-					return &v
-				case string:
-					intVal, err := strconv.Atoi(v)
+				}
+			}
+		}
+	}
+
+	if strings.ToLower(key) == "statusid" {
+		defaultStatus := 1
+		return &defaultStatus
+	}
+
+	return nil
+}
+
+func (s *studentService) getJSONDate(data map[string]interface{}, key string) *time.Time {
+	possibleKeys := []string{
+		key,
+		strings.ToUpper(key[:1]) + key[1:],
+		strings.ToLower(key),
+	}
+
+	for _, k := range possibleKeys {
+		if val, ok := data[k]; ok && val != nil {
+			if strVal, ok := val.(string); ok && strVal != "" {
+				formats := []string{
+					"2006-01-02",
+					"01/02/2006",
+					"02/01/2006",
+					"2006/01/02",
+				}
+
+				for _, format := range formats {
+					date, err := time.Parse(format, strVal)
 					if err == nil {
-						return &intVal
+						return &date
 					}
 				}
 			}
 		}
-
-		// Return default value (1) for status ID if not provided
-		if strings.ToLower(key) == "statusid" {
-			defaultStatus := 1
-			return &defaultStatus
-		}
-
-		return nil
 	}
 
-	// Helper function to get date value with case-insensitive key matching and nil protection
-	getDate := func(key string) *time.Time {
-		// Try various key formats with nil protection
-		possibleKeys := []string{
-			key,                                // Original
-			strings.ToUpper(key[:1]) + key[1:], // PascalCase
-			strings.ToLower(key),               // lowercase
-		}
-
-		for _, k := range possibleKeys {
-			if val, ok := data[k]; ok && val != nil {
-				if strVal, ok := val.(string); ok && strVal != "" {
-					// Try different date formats
-					formats := []string{
-						"2006-01-02",
-						"01/02/2006",
-						"02/01/2006",
-						"2006/01/02",
-					}
-
-					for _, format := range formats {
-						date, err := time.Parse(format, strVal)
-						if err == nil {
-							return &date
-						}
-					}
-				}
-			}
-		}
-
-		// Return current date as fallback for required date fields
-		if strings.ToLower(key) == "dateofbirth" {
-			now := time.Now()
-			return &now
-		}
-
-		return nil
+	if strings.ToLower(key) == "dateofbirth" {
+		now := time.Now()
+		return &now
 	}
 
-	// Create student request with nil checks and default values
-	req := &models.CreateStudentRequest{
-		StudentCode: getInt("studentCode"),
-		Fullname:    getString("fullname"),
-		Email:       getString("email"),
-		DateOfBirth: getDate("dateOfBirth"),
-		Gender:      getString("gender"),
-		FacultyID:   getInt("facultyId"),
-		Batch:       getString("batch"),
-		Program:     getString("program"),
-		Address:     getString("address"),
-		Phone:       getString("phone"),
-		StatusID:    getInt("statusId"),
-		ProgramID:   getInt("programId"),
-		Nationality: getString("nationality"),
-		Addresses:   make([]*models.AddressRequest, 0),
-		Documents:   make([]*models.DocumentRequest, 0),
-	}
+	return nil
+}
 
-	// Ensure required fields have default values if not provided
-	if req.StudentCode == nil {
-		return nil, fmt.Errorf("missing required field: studentCode")
-	}
-
-	if req.Fullname == nil {
-		return nil, fmt.Errorf("missing required field: fullname")
-	}
-
-	if req.Email == nil {
-		return nil, fmt.Errorf("missing required field: email")
-	}
-
-	// Ensure gender has default value if not provided
-	if req.Gender == nil {
-		defaultGender := "Other"
-		req.Gender = &defaultGender
-	}
-
-	// Ensure batch has default value if not provided
-	if req.Batch == nil {
-		currentYear := fmt.Sprintf("%d", time.Now().Year())
-		req.Batch = &currentYear
-	}
-
-	// Ensure program has default value if not provided
-	if req.Program == nil {
-		defaultProgram := "Unknown"
-		req.Program = &defaultProgram
-	}
-
-	// Ensure address has default value if not provided
-	if req.Address == nil {
-		defaultAddress := ""
-		req.Address = &defaultAddress
-	}
-
-	// Ensure phone has default value if not provided
-	if req.Phone == nil {
-		defaultPhone := ""
-		req.Phone = &defaultPhone
-	}
-
-	// Ensure programID has default value if not provided
-	if req.ProgramID == nil {
-		defaultProgramID := 1
-		req.ProgramID = &defaultProgramID
-	}
-
-	// Ensure facultyID has default value if not provided
-	if req.FacultyID == nil {
-		defaultFacultyID := 1
-		req.FacultyID = &defaultFacultyID
-	}
-
-	// Ensure nationality has default value if not provided
-	if req.Nationality == nil {
-		defaultNationality := "Vietnam"
-		req.Nationality = &defaultNationality
-	}
-
-	// Process addresses from flat structure in JSON
-	// Map fields like PermanentStreet, PermanentWard, etc. to address objects
+func (s *studentService) processJSONAddresses(data map[string]interface{}) []*models.AddressRequest {
 	addressTypes := map[string]struct{}{
 		"Permanent": {},
 		"Temporary": {},
@@ -1397,191 +1080,261 @@ func (s *studentService) createStudentRequestFromJSON(data map[string]interface{
 
 	addressMap := make(map[string]*models.AddressRequest)
 
-	// Check for address fields in the flat structure with nil protection
 	for key, value := range data {
 		if value == nil {
-			continue // Skip nil values
+			continue
 		}
 
-		// Look for fields like "PermanentStreet", "TemporaryCity", etc.
 		for prefix := range addressTypes {
 			if strings.HasPrefix(key, prefix) && len(key) > len(prefix) {
 				field := key[len(prefix):]
-
-				// Create the address object if it doesn't exist
-				if _, exists := addressMap[prefix]; !exists {
-					addressMap[prefix] = &models.AddressRequest{
-						AddressType: prefix,
-						Country:     "Vietnam", // Default
-					}
-				}
-
-				// Set the appropriate field with nil check
-				if value != nil {
-					if strings.EqualFold(field, "Street") {
-						if strVal, ok := value.(string); ok && strVal != "" {
-							addressMap[prefix].Street = strVal
-						}
-					} else if strings.EqualFold(field, "Ward") {
-						if strVal, ok := value.(string); ok && strVal != "" {
-							addressMap[prefix].Ward = strVal
-						}
-					} else if strings.EqualFold(field, "District") {
-						if strVal, ok := value.(string); ok && strVal != "" {
-							addressMap[prefix].District = strVal
-						}
-					} else if strings.EqualFold(field, "City") {
-						if strVal, ok := value.(string); ok && strVal != "" {
-							addressMap[prefix].City = strVal
-						}
-					} else if strings.EqualFold(field, "Country") {
-						if strVal, ok := value.(string); ok && strVal != "" {
-							addressMap[prefix].Country = strVal
-						}
-					}
-				}
+				s.updateAddressField(addressMap, prefix, field, value)
 			}
 		}
 	}
 
-	// Add valid addresses to the request with nil protection
+	var addresses []*models.AddressRequest
 	for _, addr := range addressMap {
-		// Only add if we have at least street and city and they're not nil
 		if addr != nil && addr.Street != "" && addr.City != "" {
-			req.Addresses = append(req.Addresses, addr)
+			addresses = append(addresses, addr)
 		}
 	}
 
-	// Process documents from flat structure in JSON with nil protection
-	// Map fields like CCCDNumber, CCCDIssueDate, etc. to document objects
+	return addresses
+}
+
+func (s *studentService) updateAddressField(addressMap map[string]*models.AddressRequest, prefix, field string, value interface{}) {
+	if _, exists := addressMap[prefix]; !exists {
+		addressMap[prefix] = &models.AddressRequest{
+			AddressType: prefix,
+			Country:     "Vietnam", // Default
+		}
+	}
+
+	if value == nil {
+		return
+	}
+
+	strVal, ok := value.(string)
+	if !ok || strVal == "" {
+		return
+	}
+
+	addr := addressMap[prefix]
+	switch {
+	case strings.EqualFold(field, "Street"):
+		addr.Street = strVal
+	case strings.EqualFold(field, "Ward"):
+		addr.Ward = strVal
+	case strings.EqualFold(field, "District"):
+		addr.District = strVal
+	case strings.EqualFold(field, "City"):
+		addr.City = strVal
+	case strings.EqualFold(field, "Country"):
+		addr.Country = strVal
+	}
+}
+
+func (s *studentService) processJSONDocuments(data map[string]interface{}) []*models.DocumentRequest {
 	docPrefixes := []string{"CCCD", "CMND", "Passport"}
 	docMap := make(map[string]*models.DocumentRequest)
 
-	// Check for document fields in the flat structure with nil protection
 	for key, value := range data {
 		if value == nil {
-			continue // Skip nil values
+			continue
 		}
 
 		for _, prefix := range docPrefixes {
 			if strings.HasPrefix(key, prefix) && len(key) > len(prefix) {
 				field := key[len(prefix):]
-
-				// Create the document object if it doesn't exist
-				if _, exists := docMap[prefix]; !exists {
-					docMap[prefix] = &models.DocumentRequest{
-						DocumentType:   prefix,
-						CountryOfIssue: "Vietnam", // Default
-					}
-				}
-
-				// Set the appropriate field with nil protection
-				if strings.EqualFold(field, "Number") {
-					if numVal, ok := value.(float64); ok {
-						docMap[prefix].DocumentNumber = fmt.Sprintf("%v", int(numVal))
-					} else if strVal, ok := value.(string); ok && strVal != "" {
-						docMap[prefix].DocumentNumber = strVal
-					}
-				} else if strings.EqualFold(field, "IssueDate") && value != nil {
-					if strVal, ok := value.(string); ok && strVal != "" {
-						// Try different date formats
-						formats := []string{
-							"2006-01-02",
-							"01/02/2006",
-							"02/01/2006",
-							"2006/01/02",
-						}
-
-						for _, format := range formats {
-							date, err := time.Parse(format, strVal)
-							if err == nil {
-								docMap[prefix].IssueDate = date
-								break
-							}
-						}
-					}
-				} else if strings.EqualFold(field, "IssuePlace") && value != nil {
-					if strVal, ok := value.(string); ok && strVal != "" {
-						docMap[prefix].IssuePlace = strVal
-					}
-				} else if strings.EqualFold(field, "ExpiryDate") && value != nil {
-					if strVal, ok := value.(string); ok && strVal != "" {
-						// Try different date formats
-						formats := []string{
-							"2006-01-02",
-							"01/02/2006",
-							"02/01/2006",
-							"2006/01/02",
-						}
-
-						for _, format := range formats {
-							date, err := time.Parse(format, strVal)
-							if err == nil {
-								docMap[prefix].ExpiryDate = date
-								break
-							}
-						}
-					}
-				} else if strings.EqualFold(field, "Country") && value != nil {
-					if strVal, ok := value.(string); ok && strVal != "" {
-						docMap[prefix].CountryOfIssue = strVal
-					}
-				} else if strings.EqualFold(field, "HasChip") && value != nil {
-					if boolVal, ok := value.(bool); ok {
-						docMap[prefix].HasChip = boolVal
-					}
-				} else if strings.EqualFold(field, "Notes") {
-					if strVal, ok := value.(string); ok && strVal != "" {
-						docMap[prefix].Notes = &strVal
-					} else if value == nil {
-						// Handle null notes explicitly
-						emptyNote := ""
-						docMap[prefix].Notes = &emptyNote
-					}
-				}
+				s.updateDocumentField(docMap, prefix, field, value)
 			}
 		}
 	}
 
-	// Add valid documents to the request with nil protection
+	var documents []*models.DocumentRequest
 	for _, doc := range docMap {
-		// Only add if we have at least document number and it's not nil
 		if doc != nil && doc.DocumentNumber != "" {
-			req.Documents = append(req.Documents, doc)
+			documents = append(documents, doc)
 		}
+	}
+
+	return documents
+}
+
+func (s *studentService) updateDocumentField(docMap map[string]*models.DocumentRequest, prefix, field string, value interface{}) {
+	if _, exists := docMap[prefix]; !exists {
+		docMap[prefix] = &models.DocumentRequest{
+			DocumentType:   prefix,
+			CountryOfIssue: "Vietnam", // Default
+		}
+	}
+
+	if value == nil {
+		return
+	}
+
+	doc := docMap[prefix]
+	switch {
+	case strings.EqualFold(field, "Number"):
+		if numVal, ok := value.(float64); ok {
+			doc.DocumentNumber = fmt.Sprintf("%v", int(numVal))
+		} else if strVal, ok := value.(string); ok && strVal != "" {
+			doc.DocumentNumber = strVal
+		}
+	case strings.EqualFold(field, "IssueDate"), strings.EqualFold(field, "ExpiryDate"):
+		if strVal, ok := value.(string); ok && strVal != "" {
+			formats := []string{"2006-01-02", "01/02/2006", "02/01/2006", "2006/01/02"}
+			for _, format := range formats {
+				date, err := time.Parse(format, strVal)
+				if err == nil {
+					if strings.EqualFold(field, "IssueDate") {
+						doc.IssueDate = date
+					} else {
+						doc.ExpiryDate = date
+					}
+					break
+				}
+			}
+		}
+	case strings.EqualFold(field, "IssuePlace"):
+		if strVal, ok := value.(string); ok && strVal != "" {
+			doc.IssuePlace = strVal
+		}
+	case strings.EqualFold(field, "Country"):
+		if strVal, ok := value.(string); ok && strVal != "" {
+			doc.CountryOfIssue = strVal
+		}
+	case strings.EqualFold(field, "HasChip"):
+		if boolVal, ok := value.(bool); ok {
+			doc.HasChip = boolVal
+		}
+	case strings.EqualFold(field, "Notes"):
+		if strVal, ok := value.(string); ok && strVal != "" {
+			doc.Notes = &strVal
+		} else if value == nil {
+			emptyNote := ""
+			doc.Notes = &emptyNote
+		}
+	}
+}
+
+// Main functions that use the helpers
+func (s *studentService) createStudentRequestFromCSV(row []string, headerMap map[string]int) (*models.CreateStudentRequest, error) {
+	req := &models.CreateStudentRequest{
+		StudentCode: s.parseCSVInt(row, headerMap, "studentcode"),
+		Fullname:    s.getCSVColumnValue(row, headerMap, "fullname"),
+		Email:       s.getCSVColumnValue(row, headerMap, "email"),
+		DateOfBirth: s.parseCSVDate(row, headerMap, "dateofbirth"),
+		Gender:      s.getCSVColumnValue(row, headerMap, "gender"),
+		FacultyID:   s.parseCSVInt(row, headerMap, "facultyid"),
+		Batch:       s.getCSVColumnValue(row, headerMap, "batch"),
+		Program:     s.getCSVColumnValue(row, headerMap, "program"),
+		Address:     s.getCSVColumnValue(row, headerMap, "address"),
+		Phone:       s.getCSVColumnValue(row, headerMap, "phone"),
+		StatusID:    s.parseCSVInt(row, headerMap, "statusid"),
+		ProgramID:   s.parseCSVInt(row, headerMap, "programid"),
+		Nationality: s.getCSVColumnValue(row, headerMap, "nationality"),
+	}
+
+	// Process addresses and documents
+	req.Addresses = s.processCSVAddresses(row, headerMap)
+	req.Documents = s.processCSVDocuments(row, headerMap)
+
+	// Validate required fields
+	if req.StudentCode == nil || req.Fullname == nil || req.Email == nil {
+		return nil, fmt.Errorf("missing required fields: studentCode, fullname, or email")
+	}
+
+	// Set default status if not provided
+	if req.StatusID == nil {
+		defaultStatus := 1
+		req.StatusID = &defaultStatus
 	}
 
 	return req, nil
 }
 
-type customMultipartFile struct {
-	reader *bytes.Reader
-	size   int64
+func (s *studentService) createStudentRequestFromJSON(data map[string]interface{}) (*models.CreateStudentRequest, error) {
+	// Debug logging
+	jsonBytes, _ := json.Marshal(data)
+	log.WithField("data", string(jsonBytes)).Debug("Processing JSON record")
+
+	req := &models.CreateStudentRequest{
+		StudentCode: s.getJSONInt(data, "studentCode"),
+		Fullname:    s.getJSONString(data, "fullname"),
+		Email:       s.getJSONString(data, "email"),
+		DateOfBirth: s.getJSONDate(data, "dateOfBirth"),
+		Gender:      s.getJSONString(data, "gender"),
+		FacultyID:   s.getJSONInt(data, "facultyId"),
+		Batch:       s.getJSONString(data, "batch"),
+		Program:     s.getJSONString(data, "program"),
+		Address:     s.getJSONString(data, "address"),
+		Phone:       s.getJSONString(data, "phone"),
+		StatusID:    s.getJSONInt(data, "statusId"),
+		ProgramID:   s.getJSONInt(data, "programId"),
+		Nationality: s.getJSONString(data, "nationality"),
+	}
+
+	// Process addresses and documents
+	req.Addresses = s.processJSONAddresses(data)
+	req.Documents = s.processJSONDocuments(data)
+
+	// Validate and set defaults
+	if err := s.validateAndSetDefaults(req); err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }
 
-func (f *customMultipartFile) Read(p []byte) (n int, err error) {
-	return f.reader.Read(p)
-}
+func (s *studentService) validateAndSetDefaults(req *models.CreateStudentRequest) error {
+	// Validate required fields
+	if req.StudentCode == nil {
+		return fmt.Errorf("missing required field: studentCode")
+	}
+	if req.Fullname == nil {
+		return fmt.Errorf("missing required field: fullname")
+	}
+	if req.Email == nil {
+		return fmt.Errorf("missing required field: email")
+	}
 
-func (f *customMultipartFile) ReadAt(p []byte, off int64) (n int, err error) {
-	return f.reader.ReadAt(p, off)
-}
+	// Set defaults for optional fields
+	if req.Gender == nil {
+		defaultGender := "Other"
+		req.Gender = &defaultGender
+	}
+	if req.Batch == nil {
+		currentYear := fmt.Sprintf("%d", time.Now().Year())
+		req.Batch = &currentYear
+	}
+	if req.Program == nil {
+		defaultProgram := "Unknown"
+		req.Program = &defaultProgram
+	}
+	if req.Address == nil {
+		defaultAddress := ""
+		req.Address = &defaultAddress
+	}
+	if req.Phone == nil {
+		defaultPhone := ""
+		req.Phone = &defaultPhone
+	}
+	if req.ProgramID == nil {
+		defaultProgramID := 1
+		req.ProgramID = &defaultProgramID
+	}
+	if req.FacultyID == nil {
+		defaultFacultyID := 1
+		req.FacultyID = &defaultFacultyID
+	}
+	if req.Nationality == nil {
+		defaultNationality := "Vietnam"
+		req.Nationality = &defaultNationality
+	}
 
-func (f *customMultipartFile) Seek(offset int64, whence int) (int64, error) {
-	return f.reader.Seek(offset, whence)
-}
-
-func (f *customMultipartFile) Close() error {
 	return nil
-}
-
-type customFileHeader struct {
-	*multipart.FileHeader
-	openFunc func() (multipart.File, error)
-}
-
-func (cfh *customFileHeader) Open() (multipart.File, error) {
-	return cfh.openFunc()
 }
 
 // ExportStudentsToCSV exports student data as CSV
