@@ -14,9 +14,9 @@ import (
 
 type Service interface {
 	GetList(ctx context.Context, req *models.ListFacultyRequest) (*models.ListFacultyResponse, error)
-	CreateAFaculty(ctx context.Context, faculty *models.CreateFacultyRequest) error
-	UpdateFaculty(ctx context.Context, id string, faculty *models.UpdateFacultyRequest) (*models.Faculty, error)
-	DeleteFaculty(ctx context.Context, id string) error
+	CreateAFaculty(ctx context.Context, userID string, faculty *models.CreateFacultyRequest) error
+	UpdateFaculty(ctx context.Context, userID string, id string, faculty *models.UpdateFacultyRequest) error
+	DeleteFaculty(ctx context.Context, userID string, id string) error
 }
 
 type facultyService struct {
@@ -30,28 +30,30 @@ func NewFalcutyService(facultyRepo faculty.Repository) Service {
 }
 
 func (s *facultyService) GetList(ctx context.Context, req *models.ListFacultyRequest) (*models.ListFacultyResponse, error) {
-	// Set default values if not provided
+	logger := log.WithContext(ctx).WithFields(log.Fields{
+		"function": "GetList",
+	})
+
+	logger.Info("Fetching faculty list")
+
 	if req.Sort == "" {
-		req.Sort = "name.asc" // Default sort by name ascending
+		req.Sort = "name.asc"
 	}
 
 	if req.PageSize <= 0 {
-		req.PageSize = 10 // Default page size
+		req.PageSize = 10
 	}
 
-	// Calculate offset based on page and page size
 	offset := (req.Page - 1) * req.PageSize
 
-	// Create query parameters
 	queryParams := models2.QueryParams{
 		Limit:  req.PageSize,
 		Offset: offset,
 		QuerySort: models2.QuerySort{
-			Origin: req.Sort, // Use Origin instead of Sort for proper handling
+			Origin: req.Sort,
 		},
 	}
 
-	// Create filter clauses if needed
 	var clauses []repositories.Clause
 	if req.Name != "" {
 		clauses = append(clauses, func(tx *gorm.DB) {
@@ -59,59 +61,89 @@ func (s *facultyService) GetList(ctx context.Context, req *models.ListFacultyReq
 		})
 	}
 
-	// Combine clauses if any
 	combinedClause := func(tx *gorm.DB) {
 		for _, clause := range clauses {
 			clause(tx)
 		}
 	}
 
-	// Get faculties with filters
 	faculties, err := s.facultyRepo.List(ctx, queryParams, combinedClause)
 	if err != nil {
-		log.WithError(err).Error("Failed to list faculties")
+		logger.WithError(err).Error("Failed to fetch faculty list")
 		return nil, err
 	}
 
-	// Convert to response model
 	var facultyList []models.Faculty
 	for _, faculty := range faculties {
 		facultyList = append(facultyList, *faculty)
 	}
 
-	// Create and return response
+	logger.WithField("count", len(facultyList)).Info("Successfully fetched faculty list")
 	return &models.ListFacultyResponse{
 		Items: facultyList,
 	}, nil
 }
 
-func (s *facultyService) CreateAFaculty(ctx context.Context, req *models.CreateFacultyRequest) error {
-	// Chuyển đổi từ CreateFacultyRequest sang Faculty
+func (s *facultyService) CreateAFaculty(ctx context.Context, userID string, req *models.CreateFacultyRequest) error {
+	logger := log.WithContext(ctx).WithFields(log.Fields{
+		"function": "CreateAFaculty",
+		"userID":   userID,
+	})
+
+	logger.Info("Creating new faculty")
+
 	faculty := &models.Faculty{
 		Name: req.Name,
 	}
 
 	_, err := s.facultyRepo.Create(ctx, faculty)
 	if err != nil {
+		logger.WithError(err).Error("Failed to create faculty")
 		return err
 	}
 
+	logger.WithField("facultyID", req.ID).Info("Faculty created successfully")
 	return nil
 }
 
-func (s *facultyService) UpdateFaculty(ctx context.Context, id string, req *models.UpdateFacultyRequest) (*models.Faculty, error) {
+func (s *facultyService) UpdateFaculty(ctx context.Context, userID string, id string, req *models.UpdateFacultyRequest) error {
+	logger := log.WithContext(ctx).WithFields(log.Fields{
+		"function": "UpdateFaculty",
+		"userID":   userID,
+		"id":       id,
+	})
+
+	logger.Info("Updating faculty")
 
 	faculty := &models.Faculty{
 		Name: req.Name,
 	}
-	updatedFaculty, err := s.facultyRepo.Update(ctx, id, faculty)
+
+	_, err := s.facultyRepo.Update(ctx, id, faculty)
 	if err != nil {
-		return nil, err
+		logger.WithError(err).Error("Failed to update faculty")
+		return err
 	}
 
-	return updatedFaculty, nil
+	logger.Info("Faculty updated successfully")
+	return nil
 }
 
-func (s *facultyService) DeleteFaculty(ctx context.Context, id string) error {
-	return s.facultyRepo.DeleteByID(ctx, id)
+func (s *facultyService) DeleteFaculty(ctx context.Context, userID string, id string) error {
+	logger := log.WithContext(ctx).WithFields(log.Fields{
+		"function": "DeleteFaculty",
+		"userID":   userID,
+		"id":       id,
+	})
+
+	logger.Info("Deleting faculty")
+
+	err := s.facultyRepo.DeleteByID(ctx, id)
+	if err != nil {
+		logger.WithError(err).Error("Failed to delete faculty")
+		return err
+	}
+
+	logger.Info("Faculty deleted successfully")
+	return nil
 }

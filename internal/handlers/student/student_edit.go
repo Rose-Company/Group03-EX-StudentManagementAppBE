@@ -7,16 +7,12 @@ import (
 	"fmt"
 	"net/http"
 
-	"log"
-
 	"github.com/gin-gonic/gin"
 )
 
 func (h *Handler) CreateStudent(c *gin.Context) {
-	log.Println("Handling request: CreateStudent - Creating a new student")
 	ok, profile := common.ProfileFromJwt(c)
 	if !ok {
-		log.Println("Unauthorized access attempt in CreateStudent")
 		common.AbortWithError(c, common.ErrInvalidToken)
 		return
 	}
@@ -29,31 +25,21 @@ func (h *Handler) CreateStudent(c *gin.Context) {
 
 	err := h.Service.Student.CreateAStudent(c.Request.Context(), profile.Id, &createReq)
 	if err != nil {
-		log.Printf("Error creating student: %v", err)
 		common.AbortWithError(c, err)
 		return
 	}
 
-	log.Println("Student created successfully")
-	c.JSON(http.StatusCreated, common.Response{
-		Code:    200,
-		Message: "Student created successfully",
-	})
+	c.JSON(common.SUCCESS_STATUS, common.ResponseOk(nil))
 }
 
 func (h *Handler) UpdateStudent(c *gin.Context) {
-	log.Println("Handling request: UpdateStudent - Updating student")
-
 	ok, profile := common.ProfileFromJwt(c)
 	if !ok {
-		log.Println("Unauthorized access attempt in UpdateStudent")
 		common.AbortWithError(c, common.ErrInvalidToken)
 		return
 	}
 
 	studentId := c.Param("id")
-	fmt.Println(studentId)
-
 	var updateReq student_models.UpdateStudentRequest
 	if err := c.ShouldBindJSON(&updateReq); err != nil {
 		common.AbortWithError(c, common.ErrInvalidInput)
@@ -61,22 +47,16 @@ func (h *Handler) UpdateStudent(c *gin.Context) {
 	}
 	err := h.Service.Student.UpdateStudent(c.Request.Context(), profile.Id, studentId, &updateReq)
 	if err != nil {
-		log.Printf("Error updating student with ID %s: %v", studentId, err)
 		common.AbortWithError(c, err)
 		return
 	}
 
-	log.Printf("Student updated successfully with ID: %s", studentId)
-	c.JSON(http.StatusOK, common.Response{
-		Code:    200,
-		Message: "Student updated successfully",
-	})
+	c.JSON(common.SUCCESS_STATUS, common.ResponseOk(nil))
 }
 
 func (h *Handler) DeleteStudentByID(c *gin.Context) {
 	ok, profile := common.ProfileFromJwt(c)
 	if !ok {
-		log.Println("Unauthorized access attempt in DeleteStudentByID")
 		common.AbortWithError(c, common.ErrInvalidToken)
 		return
 	}
@@ -84,16 +64,11 @@ func (h *Handler) DeleteStudentByID(c *gin.Context) {
 	studentID := c.Param("id")
 	err := h.Service.Student.DeleteStudentByID(c.Request.Context(), profile.Id, studentID)
 	if err != nil {
-		log.Printf("Error deleting student with ID %s: %v", studentID, err)
 		common.AbortWithError(c, err)
 		return
 	}
 
-	log.Printf("Student deleted successfully with ID: %s", studentID)
-	c.JSON(http.StatusOK, common.Response{
-		Code:    200,
-		Message: "Student deleted successfully",
-	})
+	c.JSON(common.SUCCESS_STATUS, common.ResponseOk(nil))
 }
 
 func (h *Handler) ImportStudentsFromFile(c *gin.Context) {
@@ -137,7 +112,7 @@ func (h *Handler) ImportStudentsFromFile(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Students imported successfully"})
+	c.JSON(common.SUCCESS_STATUS, common.ResponseOk(nil))
 }
 
 func (h *Handler) ExportStudentsToFile(c *gin.Context) {
@@ -165,7 +140,7 @@ func (h *Handler) ExportStudentsToFile(c *gin.Context) {
 			return
 		}
 
-		filename := "students-export.json"
+		filename := common.FILENAME_JSON
 		c.Header("Content-Description", "File Transfer")
 		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 		c.Header("Content-Type", "application/json")
@@ -181,7 +156,7 @@ func (h *Handler) ExportStudentsToFile(c *gin.Context) {
 			return
 		}
 
-		filename := "students-export.csv"
+		filename := common.FILENAME_CSV
 		c.Header("Content-Description", "File Transfer")
 		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 		c.Header("Content-Type", "text/csv")

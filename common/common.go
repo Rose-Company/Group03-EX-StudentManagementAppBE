@@ -20,5 +20,3 @@ const (
 
 	USER_PROVIDER_GOOGLE = ""
 )
-
-// Define other common variable here
