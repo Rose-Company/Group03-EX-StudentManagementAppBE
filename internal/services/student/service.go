@@ -417,7 +417,7 @@ func (s *studentService) GetStudentStatuses(ctx context.Context, req *student_st
 
 	if req.Sort == "" {
 		clauses = append(clauses, func(tx *gorm.DB) {
-			tx.Order("name ASC")
+			tx.Order("id ASC")
 		})
 	}
 
