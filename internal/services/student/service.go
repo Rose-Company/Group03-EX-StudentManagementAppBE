@@ -38,6 +38,8 @@ type Service interface {
 	UpdateStudent(ctx context.Context, userID string, studentId string, req *models.UpdateStudentRequest) error
 	DeleteStudentByID(ctx context.Context, userID string, studentID string) error
 	GetStudentStatuses(ctx context.Context, req *student_status_models.ListStudentStatusRequest) ([]*models.StudentStatus, error)
+	
+	
 	CreateStudentStatus(ctx context.Context, studentStatus *student_status_models.CreateStudentStatusRequest) error
 	UpdateStudentStatus(ctx context.Context, id string, req *student_status_models.UpdateStudentStatusRequest) (*models.StudentStatus, error)
 	DeleteStudentStatus(ctx context.Context, id string) error

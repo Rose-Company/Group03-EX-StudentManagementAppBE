@@ -34,6 +34,4 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 		studentGroup.GET("", middleware.UserAuthentication, h.GetStudentList)
 
 	}
-
-	
 }
