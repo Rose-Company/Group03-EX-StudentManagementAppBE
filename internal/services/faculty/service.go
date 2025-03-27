@@ -13,7 +13,7 @@ import (
 )
 
 type Service interface {
-	GetList(ctx context.Context, req *models.ListFacultyRequest) (*models.ListFacultyResponse, error)
+	GetList(ctx context.Context, req *models.ListFacultyRequest) (*[]models.Faculty, error)
 	CreateAFaculty(ctx context.Context, userID string, faculty *models.CreateFacultyRequest) error
 	UpdateFaculty(ctx context.Context, userID string, id string, faculty *models.UpdateFacultyRequest) error
 	DeleteFaculty(ctx context.Context, userID string, id string) error
@@ -29,20 +29,12 @@ func NewFalcutyService(facultyRepo faculty.Repository) Service {
 	}
 }
 
-func (s *facultyService) GetList(ctx context.Context, req *models.ListFacultyRequest) (*models.ListFacultyResponse, error) {
+func (s *facultyService) GetList(ctx context.Context, req *models.ListFacultyRequest) (*[]models.Faculty, error) {
 	logger := log.WithContext(ctx).WithFields(log.Fields{
 		"function": "GetList",
 	})
 
 	logger.Info("Fetching faculty list")
-
-	if req.Sort == "" {
-		req.Sort = "name.asc"
-	}
-
-	if req.PageSize <= 0 {
-		req.PageSize = 10
-	}
 
 	offset := (req.Page - 1) * req.PageSize
 
@@ -58,6 +50,12 @@ func (s *facultyService) GetList(ctx context.Context, req *models.ListFacultyReq
 	if req.Name != "" {
 		clauses = append(clauses, func(tx *gorm.DB) {
 			tx.Where("LOWER(name) LIKE LOWER(?)", "%"+req.Name+"%")
+		})
+	}
+
+	if req.Sort == "" {
+		clauses = append(clauses, func(tx *gorm.DB) {
+			tx.Order("id ASC")
 		})
 	}
 
@@ -79,9 +77,7 @@ func (s *facultyService) GetList(ctx context.Context, req *models.ListFacultyReq
 	}
 
 	logger.WithField("count", len(facultyList)).Info("Successfully fetched faculty list")
-	return &models.ListFacultyResponse{
-		Items: facultyList,
-	}, nil
+	return &facultyList, nil
 }
 
 func (s *facultyService) CreateAFaculty(ctx context.Context, userID string, req *models.CreateFacultyRequest) error {
