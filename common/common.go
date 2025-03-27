@@ -10,6 +10,8 @@ const (
 	POSTGRES_TABLE_NAME_STUDENT_IDENTITY_DOCUMENTS = "PUBLIC.student_identity_documents"
 	POSTGRES_TABLE_NAME_STUDENT_PROGRAMS           = "PUBLIC.student_programs"
 	POSTGRES_TABLE_NAME_FILES                      = "PUBLIC.files"
+	POSTGRES_TABLE_NAME_VALIDTION_SETTINGS         = "PUBLIC.validation_settings"
+	POSTGRES_TABLE_NAME_VALIDATION_RULES           = "PUBLIC.validation_rules"
 )
 
 const (
