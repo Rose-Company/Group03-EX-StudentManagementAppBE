@@ -6,11 +6,13 @@ import (
 	admin_models "Group03-EX-StudentManagementAppBE/internal/models/admin"
 	models "Group03-EX-StudentManagementAppBE/internal/models/student"
 	student_status_models "Group03-EX-StudentManagementAppBE/internal/models/student_status"
+	validation_models "Group03-EX-StudentManagementAppBE/internal/models/validation"
 	"Group03-EX-StudentManagementAppBE/internal/repositories"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
 	student_addresses "Group03-EX-StudentManagementAppBE/internal/repositories/student_addresses"
 	student_identity_documents "Group03-EX-StudentManagementAppBE/internal/repositories/student_documents"
 	student_status "Group03-EX-StudentManagementAppBE/internal/repositories/student_status"
+	"Group03-EX-StudentManagementAppBE/internal/repositories/validation"
 	"Group03-EX-StudentManagementAppBE/internal/services/gdrive"
 	"bytes"
 	"context"
@@ -19,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -47,11 +50,13 @@ type Service interface {
 }
 
 type studentService struct {
-	studentRepo         student.Repository
-	studentStatusRepo   student_status.Repository
-	studentAddressRepo  student_addresses.Repository
-	studentDocumentRepo student_identity_documents.Repository
-	driveService        gdrive.Service
+	studentRepo           student.Repository
+	studentStatusRepo     student_status.Repository
+	studentAddressRepo    student_addresses.Repository
+	studentDocumentRepo   student_identity_documents.Repository
+	driveService          gdrive.Service
+	validationSettingRepo validation.ValidationSettingRepository
+	validationRuleRepo    validation.ValidationRuleRepository
 }
 
 func NewStudentService(
@@ -59,13 +64,16 @@ func NewStudentService(
 	studentStatusRepo student_status.Repository,
 	studentAddressRepo student_addresses.Repository,
 	studentDocumentRepo student_identity_documents.Repository,
-	driveService gdrive.Service) Service {
+	driveService gdrive.Service, validationSettingRepo validation.ValidationSettingRepository,
+	validationRuleRepo validation.ValidationRuleRepository) Service {
 	return &studentService{
-		studentRepo:         studentRepo,
-		studentStatusRepo:   studentStatusRepo,
-		studentAddressRepo:  studentAddressRepo,
-		studentDocumentRepo: studentDocumentRepo,
-		driveService:        driveService,
+		studentRepo:           studentRepo,
+		studentStatusRepo:     studentStatusRepo,
+		studentAddressRepo:    studentAddressRepo,
+		studentDocumentRepo:   studentDocumentRepo,
+		driveService:          driveService,
+		validationSettingRepo: validationSettingRepo,
+		validationRuleRepo:    validationRuleRepo,
 	}
 }
 
@@ -177,6 +185,70 @@ func (s *studentService) GetStudentList(ctx context.Context, req *models.ListStu
 	return response, nil
 }
 
+// validateEmailAndPhone validates email and phone based on validation settings and rules
+func (s *studentService) validateField(ctx context.Context, value *string, validationKey string) error {
+	if value == nil {
+		return nil
+	}
+
+	// Fetch validation setting
+	validationSetting := &validation_models.ValidationSetting{}
+	validationSetting, err := s.validationSettingRepo.GetDetailByConditions(ctx, func(tx *gorm.DB) {
+		tx.Where("validation_key = ?", validationKey)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to fetch %s validation setting: %w", validationKey, err)
+	}
+
+	if validationSetting.IsEnabled {
+		// Fetch validation rules
+		var rules []*validation_models.ValidationRule
+		rules, err := s.validationRuleRepo.List(ctx, models2.QueryParams{}, func(tx *gorm.DB) {
+			tx.Where("setting_id = ? AND is_enabled = true", validationSetting.ID)
+		})
+		if err != nil {
+			return fmt.Errorf("failed to fetch %s validation rules: %w", validationKey, err)
+		}
+
+		// Validate value against rules
+		valid := false
+		for _, rule := range rules {
+			if validationKey == "email_validation" {
+				if strings.HasSuffix(*value, rule.RuleValue) {
+					valid = true
+					break
+				}
+			} else if validationKey == "phone_validation" {
+				matched, _ := regexp.MatchString(rule.RuleValue, *value)
+				if matched {
+					valid = true
+					break
+				}
+			}
+		}
+
+		if !valid {
+			return fmt.Errorf("%s is invalid based on validation rules", validationKey)
+		}
+	}
+
+	return nil
+}
+
+func (s *studentService) validateEmailAndPhone(ctx context.Context, email, phone *string) error {
+	// Validate email
+	if err := s.validateField(ctx, email, "email_validation"); err != nil {
+		return err
+	}
+
+	// Validate phone
+	if err := s.validateField(ctx, phone, "phone_validation"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *studentService) CreateAStudent(ctx context.Context, userID string, request *models.CreateStudentRequest) error {
 	logger := log.WithContext(ctx).WithFields(log.Fields{
 		"function":   "Create A Student",
@@ -189,6 +261,13 @@ func (s *studentService) CreateAStudent(ctx context.Context, userID string, requ
 	if request == nil {
 		return common.ErrInvalidInput
 	}
+
+	// Validate email and phone
+	if err := s.validateEmailAndPhone(ctx, request.Email, request.Phone); err != nil {
+		logger.Error("Validation failed", log.Fields{"error": err.Error()})
+		return err
+	}
+
 	studentModel := &models.Student{
 		StudentCode: *request.StudentCode,
 		Fullname:    *request.Fullname,
@@ -316,6 +395,12 @@ func (s *studentService) UpdateStudent(ctx context.Context, userID string, stude
 	}
 	if request.Nationality != nil {
 		updatedStudent.Nationality = *request.Nationality
+	}
+
+	// Validate email and phone
+	if err := s.validateEmailAndPhone(ctx, request.Email, request.Phone); err != nil {
+		logger.Error("Validation failed", log.Fields{"error": err.Error()})
+		return err
 	}
 
 	updatedStudent, err := s.studentRepo.Update(ctx, studentID, updatedStudent)

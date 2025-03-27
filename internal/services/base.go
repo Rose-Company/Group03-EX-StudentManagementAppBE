@@ -84,7 +84,8 @@ func NewService(userRepo user.Repository,
 		studentAddressRepo,
 		studentDocumentRepo,
 		driveSvc, // Pass the drive service here
-
+		validationSettingRepo,
+		validationRuleRepo,
 	)
 
 	return service
