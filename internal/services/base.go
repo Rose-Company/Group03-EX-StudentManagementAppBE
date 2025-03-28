@@ -10,6 +10,7 @@ import (
 	student_identity_documents "Group03-EX-StudentManagementAppBE/internal/repositories/student_documents"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student_status"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/user"
+	"Group03-EX-StudentManagementAppBE/internal/repositories/validation"
 	adminService "Group03-EX-StudentManagementAppBE/internal/services/admin"
 	"Group03-EX-StudentManagementAppBE/internal/services/auth"
 	facultyService "Group03-EX-StudentManagementAppBE/internal/services/faculty"
@@ -40,7 +41,9 @@ func NewService(userRepo user.Repository,
 	studentDocumentRepo student_identity_documents.Repository,
 	adminRepo admin.Repository,
 	db *gorm.DB,
-	programRepo program.Repository) *Service {
+	programRepo program.Repository,
+	validationRuleRepo validation.ValidationRuleRepository,
+	validationSettingRepo validation.ValidationSettingRepository) *Service {
 	// Load config for JWT secret
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -81,7 +84,8 @@ func NewService(userRepo user.Repository,
 		studentAddressRepo,
 		studentDocumentRepo,
 		driveSvc, // Pass the drive service here
-
+		validationSettingRepo,
+		validationRuleRepo,
 	)
 
 	return service
