@@ -27,13 +27,13 @@ import (
 
 // Service is a container for all services
 type Service struct {
-	Auth    auth.Service
-	Student studentService.Service
-	Faculty facultyService.Service
-	Program programService.Service
-	GDrive  gdriveService.Service
-	Admin   adminService.Service
-	StatusTransition statusTransitionService.Service
+	Auth              auth.Service
+	Student           studentService.Service
+	Faculty           facultyService.Service
+	Program           programService.Service
+	GDrive            gdriveService.Service
+	Admin             adminService.Service
+	StatusTransition  statusTransitionService.Service
 	ValidationSetting validationService.Service
 }
 
@@ -58,9 +58,10 @@ func NewService(userRepo user.Repository,
 
 	// Initialize service container with placeholder for Student service
 	service := &Service{
-		Auth:    auth.NewAuthService(userRepo, cfg.JWTSecret),
-		Faculty: facultyService.NewFalcutyService(facultyRepo),
-		Program: programService.NewProgramService(programRepo),
+		Auth:             auth.NewAuthService(userRepo, cfg.JWTSecret),
+		Faculty:          facultyService.NewFalcutyService(facultyRepo),
+		Program:          programService.NewProgramService(programRepo),
+		StatusTransition: statusTransitionService.NewService(studentStatusTransitionRuleRepo),
 	}
 
 	// Initialize Google Drive service if credentials are configured
