@@ -14,6 +14,9 @@ var (
 	ErrInvalidToken           = errors.New("invalid token")
 	ErrInvalidInput           = errors.New("invalid input")
 	ErrInvalidEmailOrPassWord = errors.New("invalid email or password")
+	ErrInvalidStatusTransition = func(from string, to string) error {
+		return fmt.Errorf("invalid status transition from %s to %s", from, to)
+	}
 	ErrInvalidFormat          = errors.New("invalid format")
 	ErrInvalidFile            = errors.New("invalid file")
 	ErrInvalidFileFormat      = errors.New("invalid file format")
