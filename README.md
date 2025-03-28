@@ -17,7 +17,6 @@ A clean architecture-based REST API for student management system developed in G
 - Các API quản lý thông tin: https://drive.google.com/file/d/1fItGjQCD1uWGDPYSrl6-TAjpGQg7c_pw/view?usp=sharing
 
 ## 📌 Tính năng chính V3.0
-
 ✅ MSSV phải là duy nhất  (DONE)
 ✅ Email phải thuộc một tên miền nhất định và có thể cấu hình động (configurable)
 ✅ Số điện thoại phải có định dạng hợp lệ theo quốc gia (configurable) 
