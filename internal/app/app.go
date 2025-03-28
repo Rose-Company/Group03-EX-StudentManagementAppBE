@@ -6,7 +6,9 @@ import (
 	"Group03-EX-StudentManagementAppBE/internal/handlers/auth"
 	"Group03-EX-StudentManagementAppBE/internal/handlers/faculty"
 	"Group03-EX-StudentManagementAppBE/internal/handlers/program"
+	"Group03-EX-StudentManagementAppBE/internal/handlers/status_transition_rule"
 	"Group03-EX-StudentManagementAppBE/internal/handlers/student"
+	"Group03-EX-StudentManagementAppBE/internal/handlers/validation"
 	"Group03-EX-StudentManagementAppBE/internal/services"
 
 	"github.com/gin-gonic/gin"
@@ -26,8 +28,15 @@ func Setup(router *gin.Engine, service *services.Service) {
 	facultyHandler := faculty.NewHandler(service)
 	facultyHandler.RegisterRoutes(api)
 
+	statusTransitionRuleHandler := status_transition_rule.NewHandler(service)
+	statusTransitionRuleHandler.RegisterRoutes(api)
+
 	programHandler := program.NewHandler(service)
 	programHandler.RegisterRoutes(api)
+
+	validationHandler := validation.NewHandler(service)
+	validationHandler.RegisterRoutes(api)
+
 
 	if service.Admin != nil {
 		adminHandler := admin.NewHandler(service)

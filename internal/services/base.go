@@ -5,6 +5,7 @@ import (
 	"Group03-EX-StudentManagementAppBE/internal/repositories/admin"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/faculty"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/program"
+	"Group03-EX-StudentManagementAppBE/internal/repositories/status_transition_rule"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
 	student_addresses "Group03-EX-StudentManagementAppBE/internal/repositories/student_addresses"
 	student_identity_documents "Group03-EX-StudentManagementAppBE/internal/repositories/student_documents"
@@ -16,7 +17,9 @@ import (
 	facultyService "Group03-EX-StudentManagementAppBE/internal/services/faculty"
 	gdriveService "Group03-EX-StudentManagementAppBE/internal/services/gdrive"
 	programService "Group03-EX-StudentManagementAppBE/internal/services/program"
+	statusTransitionService "Group03-EX-StudentManagementAppBE/internal/services/status_transition_rule"
 	studentService "Group03-EX-StudentManagementAppBE/internal/services/student"
+	validationService "Group03-EX-StudentManagementAppBE/internal/services/validation"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
@@ -30,6 +33,8 @@ type Service struct {
 	Program programService.Service
 	GDrive  gdriveService.Service
 	Admin   adminService.Service
+	StatusTransition statusTransitionService.Service
+	ValidationSetting validationService.Service
 }
 
 // NewService creates a new service container with all dependencies
@@ -42,6 +47,7 @@ func NewService(userRepo user.Repository,
 	adminRepo admin.Repository,
 	db *gorm.DB,
 	programRepo program.Repository,
+	studentStatusTransitionRuleRepo status_transition_rule.Repository,
 	validationRuleRepo validation.ValidationRuleRepository,
 	validationSettingRepo validation.ValidationSettingRepository) *Service {
 	// Load config for JWT secret
@@ -83,8 +89,9 @@ func NewService(userRepo user.Repository,
 		studentStatusRepo,
 		studentAddressRepo,
 		studentDocumentRepo,
+		studentStatusTransitionRuleRepo,
+		validationSettingRepo,
 		driveSvc, // Pass the drive service here
-
 	)
 
 	return service
