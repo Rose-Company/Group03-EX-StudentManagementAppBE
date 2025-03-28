@@ -18,3 +18,9 @@ type ValidationSetting struct {
 func (*ValidationSetting) TableName() string {
 	return common.POSTGRES_TABLE_NAME_VALIDTION_SETTINGS
 }
+
+type ValidationSettingUpdateRequest struct {
+	ValidationKey string `json:"validation_key" binding:"required"`
+	IsEnabled     bool   `json:"is_enabled"`
+}
+
