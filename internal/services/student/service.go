@@ -4,13 +4,17 @@ import (
 	"Group03-EX-StudentManagementAppBE/common"
 	models2 "Group03-EX-StudentManagementAppBE/internal/models"
 	admin_models "Group03-EX-StudentManagementAppBE/internal/models/admin"
+	status_transition_rule_models "Group03-EX-StudentManagementAppBE/internal/models/status_transition_rule"
 	models "Group03-EX-StudentManagementAppBE/internal/models/student"
 	student_status_models "Group03-EX-StudentManagementAppBE/internal/models/student_status"
+	validation_models "Group03-EX-StudentManagementAppBE/internal/models/validation"
 	"Group03-EX-StudentManagementAppBE/internal/repositories"
+	status_transition_rule "Group03-EX-StudentManagementAppBE/internal/repositories/status_transition_rule"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
 	student_addresses "Group03-EX-StudentManagementAppBE/internal/repositories/student_addresses"
 	student_identity_documents "Group03-EX-StudentManagementAppBE/internal/repositories/student_documents"
 	student_status "Group03-EX-StudentManagementAppBE/internal/repositories/student_status"
+	"Group03-EX-StudentManagementAppBE/internal/repositories/validation"
 	"Group03-EX-StudentManagementAppBE/internal/services/gdrive"
 	"bytes"
 	"context"
@@ -19,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -47,11 +52,14 @@ type Service interface {
 }
 
 type studentService struct {
-	studentRepo         student.Repository
-	studentStatusRepo   student_status.Repository
-	studentAddressRepo  student_addresses.Repository
-	studentDocumentRepo student_identity_documents.Repository
-	driveService        gdrive.Service
+	studentRepo                     student.Repository
+	studentStatusRepo               student_status.Repository
+	studentAddressRepo              student_addresses.Repository
+	studentDocumentRepo             student_identity_documents.Repository
+	driveService                    gdrive.Service
+	validationSettingRepo           validation.ValidationSettingRepository
+	validationRuleRepo              validation.ValidationRuleRepository
+	studentStatusTransitionRuleRepo status_transition_rule.Repository
 }
 
 func NewStudentService(
@@ -59,13 +67,19 @@ func NewStudentService(
 	studentStatusRepo student_status.Repository,
 	studentAddressRepo student_addresses.Repository,
 	studentDocumentRepo student_identity_documents.Repository,
-	driveService gdrive.Service) Service {
+	driveService gdrive.Service,
+	validationSettingRepo validation.ValidationSettingRepository,
+	validationRuleRepo validation.ValidationRuleRepository,
+	studentStatusTransitionRuleRepo status_transition_rule.Repository) Service {
 	return &studentService{
-		studentRepo:         studentRepo,
-		studentStatusRepo:   studentStatusRepo,
-		studentAddressRepo:  studentAddressRepo,
-		studentDocumentRepo: studentDocumentRepo,
-		driveService:        driveService,
+		studentRepo:                     studentRepo,
+		studentStatusRepo:               studentStatusRepo,
+		studentAddressRepo:              studentAddressRepo,
+		studentDocumentRepo:             studentDocumentRepo,
+		driveService:                    driveService,
+		validationSettingRepo:           validationSettingRepo,
+		validationRuleRepo:              validationRuleRepo,
+		studentStatusTransitionRuleRepo: studentStatusTransitionRuleRepo,
 	}
 }
 
@@ -177,6 +191,75 @@ func (s *studentService) GetStudentList(ctx context.Context, req *models.ListStu
 	return response, nil
 }
 
+// validateEmailAndPhone validates email and phone based on validation settings and rules
+func (s *studentService) validateField(ctx context.Context, value *string, validationKey string) error {
+	if value == nil {
+		return nil
+	}
+
+	// Fetch validation setting
+	validationSetting := &validation_models.ValidationSetting{}
+	validationSetting, err := s.validationSettingRepo.GetDetailByConditions(ctx, func(tx *gorm.DB) {
+		tx.Where("validation_key = ?", validationKey)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to fetch %s validation setting: %w", validationKey, err)
+	}
+
+	// If validation is disabled, skip validation
+	if !validationSetting.IsEnabled {
+		return nil
+	} else {
+		// Fetch validation rules
+		var rules []*validation_models.ValidationRule
+		rules, err := s.validationRuleRepo.List(ctx, models2.QueryParams{}, func(tx *gorm.DB) {
+			tx.Where("setting_id = ? AND is_enabled = true", validationSetting.ID)
+		})
+		if err != nil {
+			return fmt.Errorf("failed to fetch %s validation rules: %w", validationKey, err)
+		}
+
+		if len(rules) == 0 {
+			return nil
+		}
+
+		// Validate value against rules
+		for _, rule := range rules {
+			if validationKey == "email_validation" {
+				if strings.HasSuffix(*value, rule.RuleValue) {
+					return nil // Valid email
+				}
+			} else if validationKey == "phone_validation" {
+				matched, _ := regexp.MatchString(rule.RuleValue, *value)
+				if matched {
+					return nil // Valid phone
+				}
+			}
+		}
+
+		// If no rule matched, return detailed error
+		var ruleValues []string
+		for _, rule := range rules {
+			ruleValues = append(ruleValues, rule.RuleValue)
+		}
+		return fmt.Errorf("%s is invalid because it is not in correct formation of %s", validationKey, strings.Join(ruleValues, ", "))
+	}
+
+}
+func (s *studentService) validateEmailAndPhone(ctx context.Context, email, phone *string) error {
+	// Validate email
+	if err := s.validateField(ctx, email, "email_validation"); err != nil {
+		return err
+	}
+
+	// Validate phone
+	if err := s.validateField(ctx, phone, "phone_validation"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *studentService) CreateAStudent(ctx context.Context, userID string, request *models.CreateStudentRequest) error {
 	logger := log.WithContext(ctx).WithFields(log.Fields{
 		"function":   "Create A Student",
@@ -189,6 +272,13 @@ func (s *studentService) CreateAStudent(ctx context.Context, userID string, requ
 	if request == nil {
 		return common.ErrInvalidInput
 	}
+
+	// Validate email and phone
+	if err := s.validateEmailAndPhone(ctx, request.Email, request.Phone); err != nil {
+		logger.Error("Validation failed", log.Fields{"error": err.Error()})
+		return err
+	}
+
 	studentModel := &models.Student{
 		StudentCode: *request.StudentCode,
 		Fullname:    *request.Fullname,
@@ -275,9 +365,106 @@ func (s *studentService) UpdateStudent(ctx context.Context, userID string, stude
 	if request == nil {
 		return common.ErrInvalidInput
 	}
+
+	// Retrieve the existing student using GetDetailByConditions
+	clauses := []repositories.Clause{
+		func(tx *gorm.DB) {
+			tx.Where("id = ?", studentID)
+		},
+	}
+
+	existingStudent, err := s.studentRepo.GetDetailByConditions(ctx, clauses...)
+	if err != nil {
+		logger.Error("Failed to retrieve existing student", log.Fields{
+			"error": err.Error(),
+		})
+		return err
+	}
+
+	// If status is being updated, perform validation
+	if request.StatusID != nil {
+		// Prepare status transition rule model
+		statusTransitionRule := &status_transition_rule_models.StatusTransitionRule{
+			FromStatusID: existingStudent.StatusID,
+			ToStatusID:   *request.StatusID,
+		}
+
+		// Retrieve validation setting for student status update
+		validationSettingClauses := []repositories.Clause{
+			func(tx *gorm.DB) {
+				tx.Where("validation_key = ?", "rule_update_student_status")
+			},
+		}
+		validationSetting, err := s.validationSettingRepo.GetDetailByConditions(ctx, validationSettingClauses...)
+		if err != nil {
+			logger.Error("Failed to retrieve validation setting", log.Fields{
+				"error": err.Error(),
+			})
+			return err
+		}
+
+		// Check if validation is enabled
+		if validationSetting.IsEnabled {
+			// Check if the status transition rule exists and is enabled
+			transitionRuleClauses := []repositories.Clause{
+				func(tx *gorm.DB) {
+					tx.Where("from_status_id = ? AND to_status_id = ?",
+						statusTransitionRule.FromStatusID,
+						statusTransitionRule.ToStatusID,
+					)
+				},
+			}
+
+			fromStatusName, err := s.studentStatusRepo.GetByID(ctx, statusTransitionRule.FromStatusID)
+			if err != nil {
+				logger.Error("Failed to retrieve from status name", log.Fields{
+					"error": err.Error(),
+				})
+				return err
+			}
+
+			toStatusName, err := s.studentStatusRepo.GetByID(ctx, statusTransitionRule.ToStatusID)
+			if err != nil {
+				logger.Error("Failed to retrieve to status name", log.Fields{
+					"error": err.Error(),
+				})
+				return err
+			}
+
+			existingRule, err := s.studentStatusTransitionRuleRepo.GetDetailByConditions(ctx, transitionRuleClauses...)
+			if err != nil {
+				logger.Error("Failed to retrieve status transition rule", log.Fields{
+					"error":          err.Error(),
+					"from_status_id": statusTransitionRule.FromStatusID,
+					"to_status_id":   statusTransitionRule.ToStatusID,
+				})
+				return common.ErrInvalidStatusTransition(fromStatusName.Name, toStatusName.Name)
+			}
+
+			// Check if the rule exists
+			if existingRule == nil {
+				logger.Error("Status transition rule does not exist", log.Fields{
+					"from_status_id": statusTransitionRule.FromStatusID,
+					"to_status_id":   statusTransitionRule.ToStatusID,
+				})
+				return common.ErrInvalidStatusTransition(fromStatusName.Name, toStatusName.Name)
+			}
+
+			// Additional check to ensure the rule is enabled
+			if !existingRule.IsEnabled {
+				logger.Error("Status transition rule is not enabled", log.Fields{
+					"from_status_id": statusTransitionRule.FromStatusID,
+					"to_status_id":   statusTransitionRule.ToStatusID,
+				})
+				return common.ErrInvalidStatusTransition(fromStatusName.Name, toStatusName.Name)
+			}
+		}
+	}
+
+	// Proceed with student update
 	updatedStudent := &models.Student{}
 
-	// Apply updates to the student model
+	// Apply updates to the student model (same as before)
 	if request.StudentCode != nil {
 		updatedStudent.StudentCode = *request.StudentCode
 	}
@@ -318,7 +505,13 @@ func (s *studentService) UpdateStudent(ctx context.Context, userID string, stude
 		updatedStudent.Nationality = *request.Nationality
 	}
 
-	updatedStudent, err := s.studentRepo.Update(ctx, studentID, updatedStudent)
+	// Validate email and phone
+	if err := s.validateEmailAndPhone(ctx, request.Email, request.Phone); err != nil {
+		logger.Error("Validation failed", log.Fields{"error": err.Error()})
+		return err
+	}
+
+	updatedStudent, err = s.studentRepo.Update(ctx, studentID, updatedStudent)
 	if err != nil {
 		logger.Error("Failed to update student", log.Fields{
 			"error":      err.Error(),
@@ -327,6 +520,7 @@ func (s *studentService) UpdateStudent(ctx context.Context, userID string, stude
 		return err
 	}
 
+	// Address update logic remains the same
 	if request.Addresses != nil {
 		for _, addr := range request.Addresses {
 			studentAddr := &models.StudentAddress{
@@ -351,9 +545,8 @@ func (s *studentService) UpdateStudent(ctx context.Context, userID string, stude
 		}
 	}
 
-	// Handle documents if provided
+	// Document update logic remains the same
 	if request.Documents != nil {
-		// Create new documents
 		for _, doc := range request.Documents {
 			studentDoc := &models.StudentDocument{
 				StudentID:      updatedStudent.ID,
@@ -378,10 +571,10 @@ func (s *studentService) UpdateStudent(ctx context.Context, userID string, stude
 			}
 		}
 	}
-	log.Printf("Student created successfully by user ID: %s", userID)
+
+	log.Printf("Student updated successfully by user ID: %s", userID)
 	return nil
 }
-
 func (s *studentService) DeleteStudentByID(ctx context.Context, userID string, studentID string) error {
 	logger := log.WithContext(ctx).WithFields(log.Fields{
 		"function":   "DeleteStudentByID",

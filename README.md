@@ -1,4 +1,4 @@
-# Student Management Application V2.0
+# Student Management Application V3.0
 
 A clean architecture-based REST API for student management system developed in Go.
 
@@ -15,6 +15,18 @@ A clean architecture-based REST API for student management system developed in G
 - Logging: ![Mô tả ảnh](https://drive.google.com/uc?export=view&id=1zCnBiLaXG0_FXsMJADCTP6QotH2f5O7v)
 - Database: ![Mô tả ảnh](https://drive.google.com/uc?export=view&id=1BWt2RhYNFv75lJ-AtvPTgho0oXOA_Z55)
 - Các API quản lý thông tin: https://drive.google.com/file/d/1fItGjQCD1uWGDPYSrl6-TAjpGQg7c_pw/view?usp=sharing
+
+## 📌 Tính năng chính V3.0
+
+✅ MSSV phải là duy nhất  (DONE)
+✅ Email phải thuộc một tên miền nhất định và có thể cấu hình động (configurable)
+✅ Số điện thoại phải có định dạng hợp lệ theo quốc gia (configurable) 
+✅ Tình trạng sinh viên chỉ có thể thay đổi theo một số quy tắc (configurable)
+
+- Check MSSV: ![Mô tả ảnh](https://drive.google.com/uc?export=view&id=1K31pH2YomSiaKopNwA9LRlJlm1Pj_nwu)
+- Check Email:![Mô tả ảnh](https://drive.google.com/uc?export=view&id=1o8hWLmgUpji-eu2a1d7aCNjDvT9uQ4g4)
+- Check SĐT: ![Mô tả ảnh](https://drive.google.com/uc?export=view&id=1oRy3XGR8BKNLNy16Y3-YrcZqItybEywF)
+- Check tình trạng SV: ![Mô tả ảnh](https://drive.google.com/uc?export=view&id=1T7IAWbySnfEjD8XOPi6v93oOUA-luzqT)
 
 ## Cấu trúc source code
 

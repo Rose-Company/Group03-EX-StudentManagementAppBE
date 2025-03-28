@@ -35,5 +35,4 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 
 	}
 
-	
 }

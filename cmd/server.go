@@ -6,11 +6,13 @@ import (
 	"Group03-EX-StudentManagementAppBE/internal/repositories/admin"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/faculty"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/program"
+	"Group03-EX-StudentManagementAppBE/internal/repositories/status_transition_rule"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student"
 	student_addresses "Group03-EX-StudentManagementAppBE/internal/repositories/student_addresses"
 	student_identity_documents "Group03-EX-StudentManagementAppBE/internal/repositories/student_documents"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/student_status"
 	"Group03-EX-StudentManagementAppBE/internal/repositories/user"
+	"Group03-EX-StudentManagementAppBE/internal/repositories/validation"
 	"Group03-EX-StudentManagementAppBE/internal/services"
 	"fmt"
 	"log"
@@ -113,26 +115,32 @@ func initDatabase(cfg *config.Config) *gorm.DB {
 }
 
 type repositoriesContainer struct {
-	userRepo            user.Repository
-	studentRepo         student.Repository
-	facultyRepo         faculty.Repository
-	studentStatusRepo   student_status.Repository
-	StudentAddressRepo  student_addresses.Repository
-	StudentDocumentRepo student_identity_documents.Repository
-	adminRepo           admin.Repository
-	programRepo         program.Repository
+	userRepo              user.Repository
+	studentRepo           student.Repository
+	facultyRepo           faculty.Repository
+	studentStatusRepo     student_status.Repository
+	StudentAddressRepo    student_addresses.Repository
+	StudentDocumentRepo   student_identity_documents.Repository
+	adminRepo             admin.Repository
+	programRepo           program.Repository
+	statusTransitionRuleRepo status_transition_rule.Repository
+	validationRuleRepo    validation.ValidationRuleRepository
+	validationSettingRepo validation.ValidationSettingRepository
 }
 
 func initRepositories(db *gorm.DB) *repositoriesContainer {
 	return &repositoriesContainer{
-		userRepo:            user.NewRepository(db),
-		studentRepo:         student.NewRepository(db),
-		facultyRepo:         faculty.NewRepository(db),
-		studentStatusRepo:   student_status.NewRepository(db),
-		StudentAddressRepo:  student_addresses.NewRepository(db),
-		StudentDocumentRepo: student_identity_documents.NewRepository(db),
-		adminRepo:           admin.NewRepository(db),
-		programRepo:         program.NewRepository(db),
+		userRepo:              user.NewRepository(db),
+		studentRepo:           student.NewRepository(db),
+		facultyRepo:           faculty.NewRepository(db),
+		studentStatusRepo:     student_status.NewRepository(db),
+		StudentAddressRepo:    student_addresses.NewRepository(db),
+		StudentDocumentRepo:   student_identity_documents.NewRepository(db),
+		adminRepo:             admin.NewRepository(db),
+		programRepo:           program.NewRepository(db),
+		statusTransitionRuleRepo: status_transition_rule.NewRepository(db),
+		validationRuleRepo:    validation.NewValidationRuleRepository(db),
+		validationSettingRepo: validation.NewValidationSettingRepository(db),
 	}
 }
 
@@ -147,6 +155,9 @@ func initServices(repos *repositoriesContainer, db *gorm.DB) *services.Service {
 		repos.adminRepo,
 		db,
 		repos.programRepo,
+		repos.statusTransitionRuleRepo,
+		repos.validationRuleRepo,
+		repos.validationSettingRepo,
 	)
 }
 
