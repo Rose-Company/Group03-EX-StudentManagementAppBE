@@ -441,6 +441,15 @@ func (s *studentService) UpdateStudent(ctx context.Context, userID string, stude
 				return common.ErrInvalidStatusTransition(fromStatusName.Name, toStatusName.Name)
 			}
 
+			// Check if the rule exists
+			if existingRule == nil {
+				logger.Error("Status transition rule does not exist", log.Fields{
+					"from_status_id": statusTransitionRule.FromStatusID,
+					"to_status_id":   statusTransitionRule.ToStatusID,
+				})
+				return common.ErrInvalidStatusTransition(fromStatusName.Name, toStatusName.Name)
+			}
+
 			// Additional check to ensure the rule is enabled
 			if !existingRule.IsEnabled {
 				logger.Error("Status transition rule is not enabled", log.Fields{
