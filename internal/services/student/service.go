@@ -200,7 +200,10 @@ func (s *studentService) validateField(ctx context.Context, value *string, valid
 		return fmt.Errorf("failed to fetch %s validation setting: %w", validationKey, err)
 	}
 
-	if validationSetting.IsEnabled {
+	// If validation is disabled, skip validation
+	if !validationSetting.IsEnabled {
+		return nil
+	} else {
 		// Fetch validation rules
 		var rules []*validation_models.ValidationRule
 		rules, err := s.validationRuleRepo.List(ctx, models2.QueryParams{}, func(tx *gorm.DB) {
@@ -210,31 +213,33 @@ func (s *studentService) validateField(ctx context.Context, value *string, valid
 			return fmt.Errorf("failed to fetch %s validation rules: %w", validationKey, err)
 		}
 
+		if len(rules) == 0 {
+			return nil
+		}
+
 		// Validate value against rules
-		valid := false
 		for _, rule := range rules {
 			if validationKey == "email_validation" {
 				if strings.HasSuffix(*value, rule.RuleValue) {
-					valid = true
-					break
+					return nil // Valid email
 				}
 			} else if validationKey == "phone_validation" {
 				matched, _ := regexp.MatchString(rule.RuleValue, *value)
 				if matched {
-					valid = true
-					break
+					return nil // Valid phone
 				}
 			}
 		}
 
-		if !valid {
-			return fmt.Errorf("%s is invalid based on validation rules", validationKey)
+		// If no rule matched, return detailed error
+		var ruleValues []string
+		for _, rule := range rules {
+			ruleValues = append(ruleValues, rule.RuleValue)
 		}
+		return fmt.Errorf("%s is invalid because it is not in correct formation of %s", validationKey, strings.Join(ruleValues, ", "))
 	}
 
-	return nil
 }
-
 func (s *studentService) validateEmailAndPhone(ctx context.Context, email, phone *string) error {
 	// Validate email
 	if err := s.validateField(ctx, email, "email_validation"); err != nil {
